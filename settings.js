@@ -5,7 +5,7 @@ const settings = {
   botOwner: process.env.BOT_OWNER || 'Bugfixed',
   ownerNumber: process.env.OWNER_NUMBER || '254768161116',
 
-  giphyApiKey: process.env.GIPHY_API_KEY || 'qnl7ssQChTdPjsKta2Ax2LMaGXz303tq',
+  giphyApiKey: process.env.GIPHY_API_KEY || 'qnl7ssQChTdPjsKta2Ax2LMaZX303tq',
 
   commandMode: process.env.MODE || 'public',
 
@@ -14,6 +14,9 @@ const settings = {
 
   description: 'This is a bot for managing group commands and automating tasks.',
   version: '3.0.5',
+
+  // ⭐ Render deploy webhook (IMPORTANT)
+  updateDeployHook: process.env.UPDATE_DEPLOY_HOOK || "",
 
   updateZipUrl:
     'https://github.com/botowner4/BUGBOT/archive/refs/heads/main.zip',
