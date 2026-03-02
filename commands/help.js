@@ -184,7 +184,7 @@ ptt: false
 
 } catch (error) {
 
-console.error("IMMORTAL MODE ERROR:", error);
+console.error("BUGBOT MODE ERROR:", error);
 
 await sock.sendMessage(chatId, {
 text: "👑 BUGBOT MODE SAFE FALLBACK\nMenu loading failed."
