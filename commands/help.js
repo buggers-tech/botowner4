@@ -166,10 +166,12 @@ buttonText: { displayText: "👑 CONTACT OWNER" },
 type: 1
 }
 ],
-headerType: 4
+headerType: 4,
+contextInfo: {
+mentionedJid: []
+}
 },
 { quoted: message });
-
 // ===== BACKGROUND AUDIO =====
 const audio = await axios.get(
 "https://files.catbox.moe/yexeg9.mp3",
