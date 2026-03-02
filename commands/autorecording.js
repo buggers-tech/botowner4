@@ -8,7 +8,11 @@ GET FILE PATH PER BOT
 */
 
 function getDataFile(sock) {
+
+    if (!sock?.user?.id) return null;
+
     const botNumber = sock.user.id.split(":")[0];
+
     const dir = path.join(__dirname, '../data/autorecording');
 
     if (!fs.existsSync(dir)) {
@@ -25,7 +29,9 @@ READ STATE
 */
 
 function readState(sock) {
+
     const file = getDataFile(sock);
+    if (!file) return { enabled: false };
 
     try {
         return JSON.parse(fs.readFileSync(file, 'utf-8'));
@@ -43,6 +49,7 @@ COMMAND
 async function autorecordingCommand(sock, chatId, message) {
 
     const arg = message.message?.conversation?.split(' ')[1];
+
     const currentState = readState(sock);
 
     const newState =
@@ -50,8 +57,11 @@ async function autorecordingCommand(sock, chatId, message) {
         arg === 'off' ? false :
         !currentState.enabled;
 
+    const file = getDataFile(sock);
+    if (!file) return;
+
     fs.writeFileSync(
-        getDataFile(sock),
+        file,
         JSON.stringify({ enabled: newState }, null, 2)
     );
 
@@ -68,9 +78,11 @@ AUTO RECORDING HANDLER
 
 const activeIntervals = {};
 
-async function handleAutorecordingForMessage(sock, chatId, message) {
+async function handleAutorecordingForMessage(sock, chatId) {
 
-    const botId = sock.user.id; // unique per bot
+    if (!sock?.user?.id) return;
+
+    const botId = sock.user.id;
     const key = `${botId}_${chatId}`;
 
     const state = readState(sock);
