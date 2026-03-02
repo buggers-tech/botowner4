@@ -1,21 +1,20 @@
 const axios = require("axios");
+const settings = require("./settings");
 
 async function pairCommand(sock, chatId, message) {
     try {
 
         /* =============================
-           OWNER AUTH (FIXED)
+           OWNER AUTH (PROJECT SETTINGS)
         ============================= */
 
-        const ownerNumber = "254768161116";
+        if (!message.key) return;
 
-        const sender =
-            message.key.participant || message.key.remoteJid;
+        const senderNumber = message.key.participant
+            ? message.key.participant.split("@")[0]
+            : message.key.remoteJid?.split("@")[0];
 
-        const senderNumber =
-            sender?.split("@")[0] || "";
-
-        if (senderNumber !== ownerNumber) {
+        if (senderNumber !== settings.ownerNumber) {
             await sock.sendMessage(chatId, {
                 text: "❌ Owner only command."
             });
@@ -23,7 +22,7 @@ async function pairCommand(sock, chatId, message) {
         }
 
         /* =============================
-           MESSAGE PARSING (FIXED)
+           MESSAGE PARSING
         ============================= */
 
         const rawText =
@@ -40,10 +39,17 @@ async function pairCommand(sock, chatId, message) {
             return;
         }
 
-        let number = parts[1].replace(/[^0-9]/g, '');
+        const number = parts[1].replace(/[^0-9]/g, "");
+
+        if (!number) {
+            await sock.sendMessage(chatId, {
+                text: "⚠ Invalid number format."
+            });
+            return;
+        }
 
         /* =============================
-           API CALL
+           API REQUEST
         ============================= */
 
         const apiUrl =
@@ -81,6 +87,7 @@ async function pairCommand(sock, chatId, message) {
                 text: "⚠ Pairing runtime error."
             });
         } catch {}
+
     }
 }
 
