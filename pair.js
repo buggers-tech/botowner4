@@ -1,5 +1,5 @@
 const axios = require("axios");
-const settings = require("../settings");
+const settings = require("./settings");
 
 async function pairCommand(sock, chatId, message) {
     try {
