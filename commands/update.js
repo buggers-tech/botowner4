@@ -4,6 +4,9 @@ const settings = require("../settings");
 
 let updating = false;
 
+/* =============================
+   RUN SHELL COMMAND
+============================= */
 function run(cmd) {
     return new Promise((resolve, reject) => {
         exec(cmd, (err, stdout) => {
@@ -13,6 +16,9 @@ function run(cmd) {
     });
 }
 
+/* =============================
+   UPDATE COMMAND
+============================= */
 async function updateCommand(sock, chatId, message) {
 
     if (updating) return;
@@ -35,32 +41,50 @@ async function updateCommand(sock, chatId, message) {
         }
 
         await sock.sendMessage(chatId, {
-            text: "🔄 Checking GitHub updates..."
+            text: "🔄 Updating from GitHub repository..."
         });
 
-        // Git operations
-        const gitOutput = await run("git pull origin main");
+        /* =============================
+           FORCE SPECIFIC REPOSITORY
+        ============================= */
+
+        await run("git init");
+
+        await run(
+            "git remote remove origin || true"
+        );
+
+        await run(
+            "git remote add origin https://github.com/botowner4/BUGBOT.git"
+        );
+
+        await run("git fetch origin");
+
+        const gitOutput = await run(
+            "git reset --hard origin/main"
+        );
 
         await sock.sendMessage(chatId, {
-            text: "✅ Update pulled successfully\n\n📄 Changes:\n" + gitOutput
+            text:
+                "✅ Update successful!\n\n📄 Changes:\n" +
+                gitOutput
         });
 
-        // 🔥 Trigger Render redeploy (BEST PRACTICE)
+        /* =============================
+           OPTIONAL REDEPLOY TRIGGER
+        ============================= */
+
         if (settings.updateDeployHook) {
             const axios = require("axios");
             await axios.post(settings.updateDeployHook);
         }
-
-        await sock.sendMessage(chatId, {
-            text: "♻ Bot restarting with latest features..."
-        });
 
     } catch (err) {
 
         console.log(err);
 
         await sock.sendMessage(chatId, {
-            text: "❌ Update error:\n" + err
+            text: "❌ Update failed:\n" + err
         });
 
     }
