@@ -8,6 +8,8 @@ GET FILE PATH PER BOT
 */
 
 function getDataFile(sock) {
+    if (!sock?.user?.id) return null;
+
     const botNumber = sock.user.id.split(":")[0];
     const dir = path.join(__dirname, '../data/autotyping');
 
@@ -25,7 +27,9 @@ READ STATE
 */
 
 function readState(sock) {
+
     const file = getDataFile(sock);
+    if (!file) return { enabled: false };
 
     try {
         return JSON.parse(fs.readFileSync(file, 'utf-8'));
@@ -50,8 +54,11 @@ async function autotypingCommand(sock, chatId, message) {
         arg === 'off' ? false :
         !currentState.enabled;
 
+    const file = getDataFile(sock);
+    if (!file) return;
+
     fs.writeFileSync(
-        getDataFile(sock),
+        file,
         JSON.stringify({ enabled: newState }, null, 2)
     );
 
@@ -68,13 +75,15 @@ AUTO TYPING HANDLER
 
 const activeIntervals = {};
 
-async function handleAutotypingForMessage(sock, chatId, userMessage) {
-
-    const botId = sock.user.id;
-    const key = `${botId}_${chatId}`;
+async function handleAutotypingForMessage(sock, chatId) {
 
     const state = readState(sock);
     if (!state.enabled) return;
+
+    if (!sock?.user?.id) return;
+
+    const botId = sock.user.id;
+    const key = `${botId}_${chatId}`;
 
     if (activeIntervals[key]) return;
 
