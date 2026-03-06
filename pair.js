@@ -1,4 +1,5 @@
 require('./settings');
+require('./sessionCleaner');
 const { handleMessages } = require('./main');
 const fs = require('fs');
 const path = require('path');
