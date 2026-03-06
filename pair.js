@@ -49,6 +49,8 @@ const sock = makeWASocket({
     logger: pino({ level: "silent" }),
     printQRInTerminal: false,
     keepAliveIntervalMs: 15000,
+    markOnlineOnConnect: false,
+    syncFullHistory: false,
     auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys)
