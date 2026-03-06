@@ -49,13 +49,16 @@ const sock = makeWASocket({
     version,
     logger: pino({ level: "silent" }),
     printQRInTerminal: false,
-    keepAliveIntervalMs: 5000,
+    keepAliveIntervalMs: 15000,
     auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys)
     },
-    browser: ["Ubuntu", "Chrome", "20.0.04"]
+    browser: ["Ubuntu", "Chrome", "120.0.0"]
 });
+    sock.ev.removeAllListeners("messages.upsert");
+sock.ev.removeAllListeners("connection.update");
+sock.ev.removeAllListeners("creds.update");
 
 /* WATCHDOG KEEP ALIVE */
 
