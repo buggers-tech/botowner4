@@ -215,23 +215,13 @@ sock.ev.on("connection.update", async (update) => {
 
             if (status !== DisconnectReason.loggedOut) {
 
-    if (!reconnectAttempts[sessionKey]) {
-        reconnectAttempts[sessionKey] = 0;
-    }
+                console.log("🔄 Reconnecting:", sessionKey);
 
-    reconnectAttempts[sessionKey]++;
+                setTimeout(async () => {
+                    await startSocket(sessionPath, sessionKey);
+                }, 5000);
 
-    if (reconnectAttempts[sessionKey] > 10) {
-        console.log("❌ Too many reconnect attempts:", sessionKey);
-        return;
-    }
-
-    console.log("🔄 Reconnecting:", sessionKey);
-
-    setTimeout(async () => {
-        await startSocket(sessionPath, sessionKey);
-    }, 5000);
-    } else {
+            } else {
 
                 console.log("❌ Logged out:", sessionKey);
 
