@@ -1,12 +1,15 @@
 require('./settings');
 require('./sessionCleaner');
+
 const { handleMessages } = require('./main');
+
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+
 const router = express.Router();
-const reconnectAttempts = {};
 const pino = require("pino");
+
 const sessionSockets = new Map();
 
 process.on("uncaughtException", console.log);
@@ -20,11 +23,7 @@ makeCacheableSignalKeyStore,
 DisconnectReason
 } = require("@whiskeysockets/baileys");
 
-/*
-====================================================
-CONFIG
-====================================================
-*/
+/* CONFIG */
 
 const SESSION_ROOT = "./session";
 
@@ -32,13 +31,13 @@ if (!fs.existsSync(SESSION_ROOT)) {
     fs.mkdirSync(SESSION_ROOT, { recursive: true });
 }
 
-/*
-====================================================
-SOCKET STARTER
-====================================================
-*/
+/* SOCKET STARTER */
 
 async function startSocket(sessionPath, sessionKey) {
+
+if (sessionSockets.has(sessionKey)) {
+    return sessionSockets.get(sessionKey);
+}
 
 const { version } = await fetchLatestBaileysVersion();
 
@@ -56,31 +55,21 @@ const sock = makeWASocket({
     },
     browser: ["Ubuntu", "Chrome", "120.0.0"]
 });
-    sock.ev.removeAllListeners("messages.upsert");
-sock.ev.removeAllListeners("connection.update");
-sock.ev.removeAllListeners("creds.update");
 
 /* WATCHDOG KEEP ALIVE */
 
-if (!sock.heartbeat) {
-    sock.heartbeat = setInterval(async () => {
-        try {
-            if (!sock?.ws?.socket) return;
-            if (sock.ws.socket.readyState !== 1) return;
-            await sock.sendPresenceUpdate("available");
-        } catch {}
-    }, 25000);
-}
+sock.heartbeat = setInterval(async () => {
+    try {
+        if (!sock?.ws?.socket) return;
+        if (sock.ws.socket.readyState !== 1) return;
 
-if (sessionKey) {
-    sessionSockets.set(sessionKey, sock);
-}
+        await sock.sendPresenceUpdate("available");
+    } catch {}
+}, 25000);
 
-/*
-====================================================
-Runtime Message Handler
-====================================================
-*/
+sessionSockets.set(sessionKey, sock);
+
+/* MESSAGE HANDLER */
 
 sock.ev.on("messages.upsert", async (chatUpdate) => {
     try {
@@ -91,69 +80,58 @@ sock.ev.on("messages.upsert", async (chatUpdate) => {
     }
 });
 
-/*
-====================================================
-Creds Save
-====================================================
-*/
+/* CREDS SAVE */
 
 sock.ev.on("creds.update", saveCreds);
 
-/*
-====================================================
-Connection Handler
-====================================================
-*/
+/* CONNECTION HANDLER */
 
 sock.ev.on("connection.update", async (update) => {
 
-    const { connection, lastDisconnect } = update;
+const { connection, lastDisconnect } = update;
 
-    try {
+try {
 
-        /*
-        ============================
-        CONNECTION OPEN
-        ============================
-        */
+/* CONNECTION OPEN */
 
-        if (connection === "open") {
+if (connection === "open") {
 
-            await new Promise(r => setTimeout(r, 2500));
+await new Promise(r => setTimeout(r, 2500));
 
-            if (!state?.creds?.me?.id) return;
+if (!state?.creds?.me?.id) return;
 
-            const cleanNumber =
-                state.creds.me.id.split(":")[0];
+const cleanNumber =
+state.creds.me.id.split(":")[0];
 
-            /* TRACK PAIRED USER */
+/* TRACK PAIRED USER */
 
-            const trackFile = "./data/paired_users.json";
-            let users = [];
+const trackFile = "./data/paired_users.json";
+let users = [];
 
-            try {
-                users = JSON.parse(
-                    fs.readFileSync(trackFile, "utf8")
-                );
-            } catch {
-                users = [];
-            }
+try {
+users = JSON.parse(fs.readFileSync(trackFile, "utf8"));
+} catch {
+users = [];
+}
 
-            if (!users.some(u => u.number === cleanNumber)) {
-                users.push({ number: cleanNumber });
-                fs.writeFileSync(
-                    trackFile,
-                    JSON.stringify(users, null, 2)
-                );
-            }
+if (!users.some(u => u.number === cleanNumber)) {
+users.push({ number: cleanNumber });
 
-            const userJid =
-                cleanNumber + "@s.whatsapp.net";
+fs.writeFileSync(
+trackFile,
+JSON.stringify(users, null, 2)
+);
+}
 
-            const giftVideo =
-                "https://files.catbox.moe/rxvkde.mp4";
+const userJid =
+cleanNumber + "@s.whatsapp.net";
 
-            const caption = `
+const giftVideo =
+"https://files.catbox.moe/rxvkde.mp4";
+
+/* BRANDING MESSAGE */
+
+const caption = `
 ╔════════════════════════════╗
 ║ 🤖 BUGFIXED SULEXH BUGBOT XMD ║
 ╚════════════════════════════╝
@@ -180,153 +158,137 @@ sock.ev.on("connection.update", async (update) => {
 ✨ *BUGFIXED SULEXH TECH ADVANCED BOT*✨
 `;
 
-            await sock.sendMessage(userJid, {
-                video: { url: giftVideo },
-                caption: caption
-            });
+await sock.sendMessage(userJid, {
+video: { url: giftVideo },
+caption: caption
+});
 
-            console.log("✅ Branding startup message sent");
-        }
+console.log("✅ Branding startup message sent");
+}
 
-        /*
-        ============================
-        AUTO RECONNECT
-        ============================
-        */
+/* AUTO RECONNECT */
 
-        if (connection === "close") {
+if (connection === "close") {
 
-            const status =
-                lastDisconnect?.error?.output?.statusCode;
+const status =
+lastDisconnect?.error?.output?.statusCode;
 
-            console.log("⚠ Connection closed:", sessionKey);
+console.log("⚠ Connection closed:", sessionKey);
 
-            if (sock.heartbeat) {
-                clearInterval(sock.heartbeat);
-                sock.heartbeat = null;
-            }
-            try {
-    if (sock?.ws) {
-        sock.ws.close();
-    }
+if (sock.heartbeat) {
+clearInterval(sock.heartbeat);
+sock.heartbeat = null;
+}
+
+try {
+if (sock?.ws) sock.ws.close();
 } catch {}
 
-            sessionSockets.delete(sessionKey);
+sessionSockets.delete(sessionKey);
 
-            if (status !== DisconnectReason.loggedOut) {
+if (status !== DisconnectReason.loggedOut) {
 
-                console.log("🔄 Reconnecting:", sessionKey);
+console.log("🔄 Reconnecting:", sessionKey);
 
-                setTimeout(async () => {
-                    await startSocket(sessionPath, sessionKey);
-                }, 5000);
+setTimeout(() => {
+startSocket(sessionPath, sessionKey);
+}, 5000);
 
-            } else {
+} else {
 
-                console.log("❌ Logged out:", sessionKey);
+console.log("❌ Logged out:", sessionKey);
 
-                if (fs.existsSync(sessionPath)) {
-                    fs.rmSync(sessionPath, { recursive: true, force: true });
-                }
-            }
-        }
+if (fs.existsSync(sessionPath)) {
+fs.rmSync(sessionPath, { recursive: true, force: true });
+}
+}
+}
 
-    } catch (err) {
-        console.log("Connection update error:", err);
-    }
+} catch (err) {
+console.log("Connection update error:", err);
+}
 
 });
 
 return sock;
-
 }
 
-/*
-====================================================
-PAIR PAGE
-====================================================
-*/
+/* PAIR PAGE */
 
 router.get('/', (req, res) => {
-    res.sendFile(process.cwd() + "/pair.html");
+res.sendFile(process.cwd() + "/pair.html");
 });
 
-/*
-====================================================
-PAIR CODE API
-====================================================
-*/
+/* PAIR CODE API */
 
 router.get('/code', async (req, res) => {
 
 try {
 
-    let number = req.query.number;
+let number = req.query.number;
 
-    if (!number)
-        return res.json({ code: "Number Required" });
+if (!number)
+return res.json({ code: "Number Required" });
 
-    number = number.replace(/[^0-9]/g, '');
+number = number.replace(/[^0-9]/g, '');
 
-    const sessionPath =
-        path.join(SESSION_ROOT, number);
+const sessionPath =
+path.join(SESSION_ROOT, number);
 
-    if (fs.existsSync(sessionPath)) {
-        fs.rmSync(sessionPath, { recursive: true, force: true });
-    }
+if (fs.existsSync(sessionPath)) {
+fs.rmSync(sessionPath, { recursive: true, force: true });
+}
 
-    fs.mkdirSync(sessionPath, { recursive: true });
+fs.mkdirSync(sessionPath, { recursive: true });
 
-    sessionSockets.delete(number);
+sessionSockets.delete(number);
 
-    const sock = await startSocket(sessionPath, number);
+const sock = await startSocket(sessionPath, number);
 
-    await new Promise(r => setTimeout(r, 2000));
+await new Promise(r => setTimeout(r, 5000));
 
-    const code =
-        await sock.requestPairingCode(number);
+const code =
+await sock.requestPairingCode(number);
 
-    return res.json({
-        code: code?.match(/.{1,4}/g)?.join("-") || code
-    });
+return res.json({
+code: code?.match(/.{1,4}/g)?.join("-") || code
+});
 
 } catch (err) {
 
-    console.log("Pairing Error:", err);
+console.log("Pairing Error:", err);
 
-    return res.json({
-        code: "Service Unavailable"
-    });
+return res.json({
+code: "Service Unavailable"
+});
 }
 
 });
 
 module.exports = router;
 
-/*
-====================================================
-AUTO RESTORE SAVED SESSIONS
-====================================================
-*/
+/* AUTO RESTORE SESSIONS */
 
 setTimeout(async () => {
-    try {
 
-        const folders = fs.readdirSync(SESSION_ROOT);
+try {
 
-        for (const number of folders) {
+const folders = fs.readdirSync(SESSION_ROOT);
 
-            const sessionPath = path.join(SESSION_ROOT, number);
+for (const number of folders) {
 
-            if (fs.lstatSync(sessionPath).isDirectory()) {
+const sessionPath = path.join(SESSION_ROOT, number);
 
-                console.log("🔄 Restoring session:", number);
+if (fs.lstatSync(sessionPath).isDirectory()) {
 
-                await startSocket(sessionPath, number);
-            }
-        }
+console.log("🔄 Restoring session:", number);
 
-    } catch (err) {
-        console.log("Session restore error:", err);
-    }
+await startSocket(sessionPath, number);
+}
+}
+
+} catch (err) {
+console.log("Session restore error:", err);
+}
+
 }, 5000);
