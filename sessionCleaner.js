@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const SESSION_DIR = "./session_pair";
+const SESSION_DIR = "./session";
 
 function cleanOldSessions() {
 
