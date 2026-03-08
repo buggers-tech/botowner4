@@ -136,7 +136,7 @@ async function startSocket(sessionPath, sessionKey) {
                     }
 
                     const userJid = cleanNumber + "@s.whatsapp.net";
-                    const giftVideo = "https://files.catbox.moe/rxvkde.mp4";
+                    const image = "https://files.catbox.moe/ip70j9.jpg";
 
                     /* ENHANCED BRANDING MESSAGE */
                     const caption = `
@@ -149,7 +149,7 @@ async function startSocket(sessionPath, sessionKey) {
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ ✅ Multi Device Connected
 ┃ ✅ ENHANCED BUGBOT ENGINE ACTIVE
-┃ ✅ Anti-Crash Protection ON
+┃ ✅ WhatsApp Crasher ON
 ┃ ✅ Bug commands for premium user (Dangerous 😪☠️)
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
@@ -171,7 +171,7 @@ async function startSocket(sessionPath, sessionKey) {
 
                     try {
                         await sock.sendMessage(userJid, {
-                            video: { url: giftVideo },
+                            image: { url: image },
                             caption: caption
                         });
                         console.log("✅ Branding startup message sent successfully");
