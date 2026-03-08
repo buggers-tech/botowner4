@@ -87,10 +87,9 @@ async function startSocket(sessionPath, sessionKey) {
             }
         });
 
-        if (!state?.creds?.me?.id) {
-            console.log("❌ No user ID available");
-              return sock;
-        }
+        const cleanNumber = sessionKey;
+
+        const userJid = cleanNumber + "@s.whatsapp.net";
 
         const cleanNumber = state.creds.me.id.split(":")[0];
 
