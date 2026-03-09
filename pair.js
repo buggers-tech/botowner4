@@ -21,6 +21,7 @@ const {
 
 const sessionSockets = new Map();
 const socketHealthMap = new Map();
+const socketReadyMap = new Map();
 
 const SESSION_ROOT = "./session";
 
@@ -43,6 +44,7 @@ async function startSocket(sessionPath, sessionKey) {
 
             sessionSockets.delete(sessionKey);
             socketHealthMap.delete(sessionKey);
+            socketReadyMap.delete(sessionKey);
         }
 
         const { version } = await fetchLatestBaileysVersion();
@@ -82,11 +84,17 @@ async function startSocket(sessionPath, sessionKey) {
 
         sock.ev.on("creds.update", saveCreds);
 
-        /* ===== CONNECTION WATCHDOG ===== */
+        /* ===== MARK SOCKET AS READY FOR PAIRING ===== */
 
         sock.ev.on("connection.update", (update) => {
 
-            const { connection, lastDisconnect } = update;
+            const { connection, lastDisconnect, qr } = update;
+
+            // Socket is ready for pairing when WebSocket connects
+            if (connection === "connecting" || connection === "open") {
+                socketReadyMap.set(sessionKey, true);
+                console.log(`⚡ ${sessionKey} socket ready state updated`);
+            }
 
             if (connection === "open") {
 
@@ -108,7 +116,7 @@ async function startSocket(sessionPath, sessionKey) {
 
 🌟 SESSION CONNECTED SUCCESSFULLY 🌟
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┏━━━━━━━━━━━━━━━━━━━━���━━━━━━┓
 ┃ ✅ Multi Device Connected
 ┃ ✅ V10 BUGBOT ENGINE ACTIVE
 ┃ ✅ Whatsapp Crasher ON
@@ -128,13 +136,12 @@ async function startSocket(sessionPath, sessionKey) {
                             image: { url: image },
                             caption: caption
                         }).catch(() => {
-                            // Fallback to text if image fails
                             sock.sendMessage(jid, { text: caption }).catch(() => {});
                         });
                     }
 
-                } catch {
-                    // Silent fail
+                } catch (e) {
+                    console.log("Branding message error:", e.message);
                 }
             }
 
@@ -157,6 +164,7 @@ async function startSocket(sessionPath, sessionKey) {
                 } else {
                     console.log(`🚫 Session logged out ${sessionKey}`);
                     sessionSockets.delete(sessionKey);
+                    socketReadyMap.delete(sessionKey);
                 }
             }
         });
@@ -247,34 +255,44 @@ router.get('/code', async (req, res) => {
                 error: true
             });
 
-        /* ===== Wait for socket to be fully ready ===== */
+        /* ===== Wait for WebSocket to be ready (NOT full login) ===== */
+
+        console.log(`⏳ Waiting for WebSocket readiness on ${number}...`);
 
         await new Promise((resolve, reject) => {
             
             const timeout = setTimeout(() => {
-                reject(new Error("Socket initialization timeout after 30 seconds"));
-            }, 30000);
+                console.log(`❌ WebSocket timeout for ${number}`);
+                reject(new Error("WebSocket connection timeout"));
+            }, 15000); // Reduced from 30s to 15s for WebSocket only
 
-            const checkReady = () => {
-                // Check if socket has completed initialization
-                // Socket is ready when user credentials are loaded
-                if (sock?.user?.id || sock?.authState?.creds?.me?.id) {
+            const checkReady = setInterval(() => {
+                // Check if WebSocket is open and ready
+                if (sock?.ws?.isOpen || socketReadyMap.get(number)) {
+                    clearInterval(checkReady);
                     clearTimeout(timeout);
-                    console.log(`✅ Socket ready for ${number}`);
+                    console.log(`✅ WebSocket connected for ${number}`);
                     resolve();
-                } else {
-                    setTimeout(checkReady, 300);
                 }
-            };
-
-            checkReady();
+            }, 200);
         });
+
+        // Small delay for Baileys internal initialization
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         /* ===== Request pairing code ===== */
 
+        console.log(`📱 Requesting pairing code for ${number}...`);
+
         const code = await sock.requestPairingCode(number);
 
+        if (!code) {
+            throw new Error("Failed to generate pairing code");
+        }
+
         const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
+
+        console.log(`✅ Pairing code generated for ${number}: ${formattedCode}`);
 
         return res.json({
             code: formattedCode,
@@ -288,7 +306,7 @@ router.get('/code', async (req, res) => {
         console.log("❌ Pairing error:", err.message);
 
         return res.json({
-            code: "Service Temporarily Unavailable",
+            code: "Error: " + err.message,
             error: true,
             message: err.message
         });
