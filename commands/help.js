@@ -11,14 +11,6 @@ const banners = [
 
 const banner = banners[Math.floor(Math.random()*banners.length)]
 
-// preload image once (fast menu)
-const { data } = await axios.get(banner,{responseType:"arraybuffer"})
-
-const media = await sock.prepareWAMessageMedia(
-{ image: Buffer.from(data) },
-{ upload: sock.waUploadToServer }
-)
-
 // ================= GENERAL =================
 const GENERAL = `
 ╭────────────────────⬣
@@ -231,66 +223,32 @@ const sections = [
 ]
 
 const cards = sections.map(sec => ({
-header:{
-title:sec.title,
-hasMediaAttachment:true,
-imageMessage:media.imageMessage
-},
-body:{text:sec.text},
-footer:{text:settings.botName || "BUGBOT"},
-buttons:[
-{
-name:"quick_reply",
-buttonParamsJson:JSON.stringify({
-display_text:"📜 MENU",
-id:".menu"
-})
-},
-{
-name:"cta_url",
-buttonParamsJson:JSON.stringify({
-display_text:"👑 OWNER",
-url:"https://wa.me/254768161116"
-})
-},
-{
-name:"cta_url",
-buttonParamsJson:JSON.stringify({
-display_text:"🌐 JOIN GROUP",
-url:"https://chat.whatsapp.com/GyZBMUtrw9LIlV6htLvkCK"
-})
-}
-]
+title: sec.title,
+description: sec.text,
+rowId: ".menu",
+image: { url: banner }
 }))
 
+// send as simple list message (works everywhere)
 await sock.sendMessage(chatId,{
-viewOnceMessage:{
-message:{
-interactiveMessage:{
-body:{
-text:`
-╭───〔 🤖 ${settings.botName || "BUGBOT"} 〕───⬣
+text:`╭───〔 🤖 ${settings.botName || "BUGBOT"} 〕───⬣
 │ 👤 User : ${message.pushName || "User"}
 │ ⚡ Mode : ${settings.mode || "Public"}
 │ ⏱ Uptime : ${process.uptime().toFixed(0)}s
 ╰────────────────────⬣
-Swipe cards to explore commands →
-`
-},
-carouselMessage:{cards}
-}
-}
-}
+Swipe / select a card below →`,
+footer: settings.botName || "BUGBOT",
+title: "⭐ BUGFIXED SULEXH BOT MENU ⭐",
+templateButtons: cards.map(c=>({
+urlButton:{displayText:"🌐 JOIN GROUP",url:"https://chat.whatsapp.com/GyZBMUtrw9LIlV6htLvkCK"}
+}))
 },{quoted:message})
 
 }catch(err){
-
 console.error("MENU ERROR:",err)
-
 await sock.sendMessage(chatId,{
 text:"Menu failed to load."
 },{quoted:message})
-
 }
 
 }
