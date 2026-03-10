@@ -14,16 +14,14 @@ const {
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
     MessageRetryMap,
-    DisconnectReason,
-    Browsers
+    DisconnectReason
 } = require("@whiskeysockets/baileys");
 
 /* ================= GLOBAL MAPS ================= */
 
 const sessionSockets = new Map();
 const socketHealthMap = new Map();
-const socketHeartbeatMap = new Map();
-const pairingInProgress = new Map(); // Track active pairing processes
+const pairingInProgress = new Map(); // Track pairing status
 
 const SESSION_ROOT = "./session";
 
@@ -33,27 +31,27 @@ if (!fs.existsSync(SESSION_ROOT)) {
 
 /* ================= SOCKET CORE ================= */
 
-async function startSocket(sessionPath, sessionKey, isPairing = false) {
+async function startSocket(sessionPath, sessionKey, isPairingMode = false) {
 
     try {
+
+        /* ===== Check if pairing is in progress ===== */
+        if (pairingInProgress.has(sessionKey)) {
+            console.log(`⏸️ Pairing in progress for ${sessionKey} - suppressing auto-reconnect`);
+            return sessionSockets.get(sessionKey) || null;
+        }
 
         /* ===== Prevent Duplicate Socket Flood ===== */
 
         if (sessionSockets.has(sessionKey)) {
             const oldSock = sessionSockets.get(sessionKey);
 
-            if (oldSock?.ws?.socket) {
-                // Only return if not during pairing
-                if (!isPairing) return oldSock;
+            if (oldSock?.ws?.socket && oldSock.ws.socket.readyState === 1) {
+                return oldSock; // Socket still alive
             }
 
             sessionSockets.delete(sessionKey);
             socketHealthMap.delete(sessionKey);
-            
-            // Clear old heartbeat
-            const oldHeartbeat = socketHeartbeatMap.get(sessionKey);
-            if (oldHeartbeat) clearInterval(oldHeartbeat);
-            socketHeartbeatMap.delete(sessionKey);
         }
 
         const { version } = await fetchLatestBaileysVersion();
@@ -66,10 +64,11 @@ async function startSocket(sessionPath, sessionKey, isPairing = false) {
 
             printQRInTerminal: false,
             
-            // CRITICAL: Pairing settings - keep socket alive during pairing
-            keepAliveIntervalMs: 60000, // More generous keep-alive
+            // ⭐ PRODUCTION SETTINGS FOR RENDER 24/7 ⭐
+            keepAliveIntervalMs: 60000,
             receiveMessagesInChunks: true,
-            retryRequestDelayMs: 500,
+            shouldIgnoreJid: () => false,
+            shouldSyncHistoryMessage: () => false,
 
             markOnlineOnConnect: false,
             syncFullHistory: false,
@@ -79,23 +78,15 @@ async function startSocket(sessionPath, sessionKey, isPairing = false) {
                 keys: makeCacheableSignalKeyStore(state.keys || {})
             },
 
-            browser: Browsers.ubuntu('Chrome'),
+            browser: ["Ubuntu", "Chrome", "120.0.0"],
 
             msgRetryCounterMap: MessageRetryMap,
-            maxMsgRetryCount: 2,
-            retryRequestDelayMs: 200,
+            maxMsgRetryCount: 3,
+            retryRequestDelayMs: 500,
 
             generateHighQualityLinkPreview: false,
             connectTimeoutMs: 60000,
-            defaultQueryTimeoutMs: 60000,
-
-            shouldIgnoreJid: () => false,
-            shouldSyncHistoryMessage: () => false,
-            
-            // CRITICAL: Keep socket alive and stable
-            reconnectOnNetworkChange: true,
-            alwaysOnline: true,
-            emitOwnEventsUnfiltered: false
+            defaultQueryTimeoutMs: 60000
         });
 
         /* ===== CREDS AUTO SAVE ===== */
@@ -106,9 +97,8 @@ async function startSocket(sessionPath, sessionKey, isPairing = false) {
 
         sock.ev.on("connection.update", (update) => {
 
-            const { connection, lastDisconnect, qr } = update;
-
-            const jid = sessionKey + "@s.whatsapp.net";
+            const { connection, lastDisconnect } = update;
+            const reason = lastDisconnect?.error?.output?.statusCode;
 
             if (connection === "open") {
 
@@ -117,62 +107,85 @@ async function startSocket(sessionPath, sessionKey, isPairing = false) {
                 socketHealthMap.set(sessionKey, {
                     lastHeartbeat: Date.now(),
                     status: "connected",
-                    messagesSentDuringSession: 0
+                    connectionTime: new Date().toISOString(),
+                    reconnectAttempts: 0
                 });
-                
-                // CRITICAL: Only start heartbeat after pairing is confirmed done
-                if (!isPairing) {
-                    startSocketHeartbeat(sessionKey, sock);
+
+                // Remove pairing flag when connected
+                if (isPairingMode) {
+                    pairingInProgress.delete(sessionKey);
                 }
             }
 
-            // CRITICAL: Don't auto-reconnect during pairing
             if (connection === "close") {
-
-                const reason = lastDisconnect?.error?.output?.statusCode;
 
                 console.log(`⚠️ ${sessionKey} connection closed - Reason: ${reason}`);
 
-                // If currently pairing, don't reconnect - let pairing code endpoint handle it
-                if (pairingInProgress.get(sessionKey)) {
-                    console.log(`⏸️ Pairing in progress for ${sessionKey} - suppressing auto-reconnect`);
+                // ⭐ HANDLE DIFFERENT DISCONNECT REASONS ⭐
+
+                // Reason 515 = Replaced (new device connected) - Don't reconnect during pairing
+                if (reason === 515) {
+                    if (pairingInProgress.has(sessionKey)) {
+                        console.log(`⏸️ Pairing in progress for ${sessionKey} - suppressing auto-reconnect`);
+                        return; // Don't reconnect
+                    }
+                    // After pairing completes, reconnect
+                    setTimeout(() => {
+                        if (!sessionSockets.has(sessionKey) || !isSocketConnected(sessionKey)) {
+                            console.log(`🔧 Reconnecting ${sessionKey} after replacement...`);
+                            startSocket(sessionPath, sessionKey, false);
+                        }
+                    }, 5000);
                     return;
                 }
 
-                // For non-pairing disconnects, use reconnection logic
-                if (reason !== DisconnectReason.loggedOut && reason !== 401 && reason !== 403) {
+                // Connection Lost/Closed - Reconnect
+                if (reason === DisconnectReason.connectionClosed || 
+                    reason === DisconnectReason.connectionLost ||
+                    reason === DisconnectReason.connectionReplaced) {
 
-                    console.log(`🔄 Attempting automatic reconnection for ${sessionKey}...`);
+                    const health = socketHealthMap.get(sessionKey) || {};
+                    health.reconnectAttempts = (health.reconnectAttempts || 0) + 1;
 
-                    // Remove old heartbeat
-                    const oldHeartbeat = socketHeartbeatMap.get(sessionKey);
-                    if (oldHeartbeat) clearInterval(oldHeartbeat);
-                    socketHeartbeatMap.delete(sessionKey);
+                    if (health.reconnectAttempts <= 3) {
+                        const delayMs = 5000 + (health.reconnectAttempts * 2000);
+                        
+                        console.log(`🔄 Reconnection attempt ${health.reconnectAttempts}/3 for ${sessionKey} in ${delayMs}ms`);
+                        socketHealthMap.set(sessionKey, health);
 
-                    setTimeout(() => {
-                        if (!sessionSockets.has(sessionKey) || !isSocketConnected(sessionKey)) {
-                            console.log(`🔧 Restarting socket for ${sessionKey}...`);
-                            startSocket(sessionPath, sessionKey, false);
-                        }
-                    }, 8000);
+                        setTimeout(() => {
+                            if (!pairingInProgress.has(sessionKey)) {
+                                const currentSock = sessionSockets.get(sessionKey);
+                                if (!currentSock?.ws?.socket || currentSock.ws.socket.readyState !== 1) {
+                                    startSocket(sessionPath, sessionKey, false);
+                                }
+                            }
+                        }, delayMs);
+                    }
+                    return;
+                }
 
-                } else {
+                // Logout (401/403) - Require new pair
+                if (reason === 401 || reason === 403 || reason === DisconnectReason.loggedOut) {
                     console.log(`🚫 Session logged out ${sessionKey} (reason: ${reason})`);
-                    
-                    // Clean up
-                    const oldHeartbeat = socketHeartbeatMap.get(sessionKey);
-                    if (oldHeartbeat) clearInterval(oldHeartbeat);
-                    socketHeartbeatMap.delete(sessionKey);
-                    
                     sessionSockets.delete(sessionKey);
                     socketHealthMap.delete(sessionKey);
-                }
-            }
-        });
+                    pairingInProgress.delete(sessionKey);
 
-        /* ===== MESSAGE HANDLER ===== */
-        sock.ev.on('messages.upsert', async (m) => {
-            console.log('Message received');
+                    try {
+                        if (fs.existsSync(sessionPath)) {
+                            fs.rmSync(sessionPath, { recursive: true, force: true });
+                            console.log(`🗑️ Deleted session folder for ${sessionKey}`);
+                        }
+                    } catch (err) {
+                        console.log(`⚠️ Could not delete session: ${err.message}`);
+                    }
+                    return;
+                }
+
+                // Unknown error - Don't reconnect aggressively
+                console.log(`⚠️ Unknown disconnect reason ${reason} for ${sessionKey}`);
+            }
         });
 
         /* ===== SESSION TRACKING ===== */
@@ -181,86 +194,75 @@ async function startSocket(sessionPath, sessionKey, isPairing = false) {
         let users = [];
 
         try {
-
             if (fs.existsSync(trackFile)) {
                 const raw = fs.readFileSync(trackFile, "utf8").trim();
                 if (raw) users = JSON.parse(raw);
             }
-
         } catch {
             users = [];
         }
 
         if (!users.some(u => u.number === sessionKey)) {
-
             users.push({
                 number: sessionKey,
                 pairedAt: new Date().toISOString()
             });
 
             try {
-
                 const dir = path.dirname(trackFile);
-
                 if (!fs.existsSync(dir)) {
                     fs.mkdirSync(dir, { recursive: true });
                 }
-
-                fs.writeFileSync(trackFile,
-                    JSON.stringify(users, null, 2));
-
+                fs.writeFileSync(trackFile, JSON.stringify(users, null, 2));
             } catch (err) {
                 console.log("Track save error:", err.message);
             }
         }
 
-        sessionSockets.set(sessionKey, sock);
+        /* ===== BRANDING MESSAGE ===== */
 
+        const image = "https://files.catbox.moe/ip70j9.jpg";
+
+        const caption = `
+╔════════════════════════════╗
+║ 🚀 BUGFIXED SULEXH BUGBOT XMD ║
+╚════════════════════════════╝
+
+🌟 SESSION CONNECTED SUCCESSFULLY 🌟
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ✅ Multi Device Connected
+┃ ✅ V10 BUGBOT ENGINE ACTIVE
+┃ ✅ Whatsapp Crasher ON
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🚀 *BOT IS NOW READY FOR OPERATIONS*
+
+💡 Type *.menu* to view commands
+`;
+
+        try {
+            const jid = sessionKey + "@s.whatsapp.net";
+            if (sock?.user) {
+                await sock.sendMessage(jid, {
+                    image: { url: image },
+                    caption: caption
+                });
+            }
+        } catch {
+            await sock.sendMessage(
+                sessionKey + "@s.whatsapp.net",
+                { text: caption }
+            ).catch(() => {});
+        }
+
+        sessionSockets.set(sessionKey, sock);
         return sock;
 
     } catch (error) {
-
         console.log("❌ Socket start error:", error.message);
         return null;
     }
-}
-
-/* ================= ENHANCED HEARTBEAT SYSTEM ================= */
-
-function startSocketHeartbeat(sessionKey, sock) {
-    
-    // Clear existing heartbeat if any
-    const existingHeartbeat = socketHeartbeatMap.get(sessionKey);
-    if (existingHeartbeat) clearInterval(existingHeartbeat);
-    
-    console.log(`💓 Starting heartbeat for ${sessionKey}`);
-    
-    // Send a lightweight keep-alive every 30 seconds
-    const heartbeat = setInterval(async () => {
-        try {
-            if (!isSocketConnected(sessionKey)) {
-                clearInterval(heartbeat);
-                socketHeartbeatMap.delete(sessionKey);
-                console.log(`💔 Heartbeat stopped for ${sessionKey} (socket disconnected)`);
-                return;
-            }
-            
-            // Send heartbeat by requesting socket state
-            if (sock?.ws?.socket && sock.ws.socket.readyState === 1) {
-                sock.ws.socket.ping();
-            }
-            
-            const health = socketHealthMap.get(sessionKey);
-            if (health) {
-                health.lastHeartbeat = Date.now();
-            }
-            
-        } catch (error) {
-            console.log(`⚠️ Heartbeat error for ${sessionKey}:`, error.message);
-        }
-    }, 30000);
-    
-    socketHeartbeatMap.set(sessionKey, heartbeat);
 }
 
 /* ================= SOCKET STATUS CHECK ================= */
@@ -294,213 +296,110 @@ router.get('/code', async (req, res) => {
         if (number.length < 10)
             return res.json({ code: "Invalid Number Format", error: true });
 
-        // CRITICAL: Prevent multiple simultaneous pairing attempts for same number
-        if (pairingInProgress.get(number)) {
-            return res.json({
-                code: "Pairing already in progress for this number. Please wait.",
-                error: true
-            });
-        }
-
         const sessionPath = path.join(SESSION_ROOT, number);
 
-        // CRITICAL: Always delete and recreate fresh session for pairing
-        if (fs.existsSync(sessionPath)) {
-            try {
-                fs.rmSync(sessionPath, { recursive: true, force: true });
-                console.log(`🗑️ Cleared old session for ${number}`);
-                // Give filesystem time to clear
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            } catch (err) {
-                console.log(`⚠️ Error clearing session: ${err.message}`);
-            }
+        // ⭐ ONLY delete session if NOT already paired
+        const credPath = path.join(sessionPath, "creds.json");
+        const isAlreadyPaired = fs.existsSync(credPath);
+
+        if (!isAlreadyPaired && fs.existsSync(sessionPath)) {
+            fs.rmSync(sessionPath, { recursive: true, force: true });
         }
 
         fs.mkdirSync(sessionPath, { recursive: true });
 
-        // Mark pairing as in progress
+        // Mark pairing in progress
         pairingInProgress.set(number, true);
         console.log(`🔐 Starting pairing process for ${number}...`);
 
         const sock = await startSocket(sessionPath, number, true);
 
-        if (!sock) {
-            pairingInProgress.delete(number);
+        if (!sock)
             return res.json({
                 code: "Service Temporarily Unavailable",
-                error: true,
-                message: "Failed to create socket"
+                error: true
             });
-        }
 
-        try {
-            /* CRITICAL: Wait for socket to be ready with longer timeout */
-            let isReady = false;
-            let waitAttempts = 0;
-            const maxWaitAttempts = 60; // Wait up to 60 seconds
+        /* Wait socket ready */
 
-            while (!isReady && waitAttempts < maxWaitAttempts) {
-                if (sock?.ws?.socket && sock.ws.socket.readyState === 1) {
-                    isReady = true;
-                    console.log(`✅ Socket ready for ${number} after ${waitAttempts}s`);
-                    break;
+        let waitTime = 0;
+        await new Promise(resolve => {
+            const check = setInterval(() => {
+
+                waitTime += 100;
+
+                if (sock?.ws?.readyState === 1) {
+                    clearInterval(check);
+                    resolve();
                 }
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                waitAttempts++;
-            }
 
-            if (!isReady) {
-                pairingInProgress.delete(number);
-                sessionSockets.delete(number);
-                return res.json({
-                    code: "Socket Connection Timeout",
-                    error: true
-                });
-            }
+                // Timeout after 30 seconds
+                if (waitTime > 30000) {
+                    clearInterval(check);
+                    resolve();
+                }
 
-            console.log(`📱 Requesting pairing code for ${number}...`);
+            }, 100);
+        });
 
-            // CRITICAL: Request pairing code with timeout
-            const pairingPromise = sock.requestPairingCode(number);
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Pairing code request timeout")), 30000)
-            );
+        console.log(`✅ Socket ready for ${number} after ${waitTime/1000}s`);
 
-            let code;
-            try {
-                code = await Promise.race([pairingPromise, timeoutPromise]);
-            } catch (timeoutErr) {
-                pairingInProgress.delete(number);
-                sessionSockets.delete(number);
-                console.log(`⏱️ Pairing code request timed out for ${number}`);
-                return res.json({
-                    code: "Pairing Code Timeout - Please try again",
-                    error: true
-                });
-            }
+        console.log(`📱 Requesting pairing code for ${number}...`);
+        const code = await sock.requestPairingCode(number);
 
-            if (!code) {
-                pairingInProgress.delete(number);
-                sessionSockets.delete(number);
-                return res.json({
-                    code: "Failed to generate pairing code",
-                    error: true
-                });
-            }
+        const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
 
-            const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
+        console.log(`✅ Pairing code generated for ${number}: ${formattedCode}`);
 
-            console.log(`✅ Pairing code generated for ${number}: ${formattedCode}`);
-
-            // CRITICAL: Keep socket open - don't delete it yet
-            // Mark pairing as successful
-            pairingInProgress.set(number, 'waiting_for_auth');
-
-            return res.json({
-                code: formattedCode,
-                number,
-                timestamp: new Date().toISOString(),
-                error: false,
-                message: "Please scan the code on your phone and confirm the pairing"
-            });
-
-        } catch (err) {
-            console.log("Pairing error:", err.message);
-            pairingInProgress.delete(number);
-            sessionSockets.delete(number);
-
-            return res.json({
-                code: "Service Temporarily Unavailable",
-                error: true,
-                message: err.message
-            });
-        }
+        return res.json({
+            code: formattedCode,
+            number,
+            timestamp: new Date().toISOString(),
+            error: false,
+            message: "Please scan this code in WhatsApp. Connection will establish after authentication."
+        });
 
     } catch (err) {
 
-        console.log("Pairing endpoint error:", err.message);
+        console.log("Pairing error:", err.message);
+
+        // Remove pairing flag on error
+        let number = req.query.number?.replace(/[^0-9]/g, '');
+        if (number) pairingInProgress.delete(number);
 
         return res.json({
-            code: "Service Error",
+            code: "Service Temporarily Unavailable",
             error: true,
             message: err.message
         });
     }
 });
 
-// ADDED: New endpoint to check pairing status and confirm completion
-router.get('/check/:number', async (req, res) => {
-    try {
-        const number = req.params.number.replace(/[^0-9]/g, '');
-        
-        if (!number) {
-            return res.json({ status: "error", message: "Number required" });
+// ⭐ GRACEFUL SHUTDOWN
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM received - Closing all sockets gracefully...');
+    sessionSockets.forEach((sock, key) => {
+        try {
+            sock.end();
+            console.log(`✅ Socket ${key} closed`);
+        } catch (err) {
+            console.log(`⚠️ Error closing ${key}: ${err.message}`);
         }
+    });
+    setTimeout(() => process.exit(0), 2000);
+});
 
-        const sock = sessionSockets.get(number);
-        
-        if (!sock) {
-            return res.json({
-                status: "not_connected",
-                number: number,
-                message: "Socket not found"
-            });
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT received - Closing all sockets gracefully...');
+    sessionSockets.forEach((sock, key) => {
+        try {
+            sock.end();
+            console.log(`✅ Socket ${key} closed`);
+        } catch (err) {
+            console.log(`⚠️ Error closing ${key}: ${err.message}`);
         }
-
-        const isConnected = sock?.ws?.socket && sock.ws.socket.readyState === 1;
-        const user = sock?.user;
-
-        if (isConnected && user) {
-            pairingInProgress.delete(number);
-            console.log(`✅ Pairing confirmed for ${number}`);
-            
-            // Send welcome message
-            try {
-                const caption = `
-╔════════════════════════════╗
-║ 🚀 BUGFIXED SULEXH BUGBOT XMD ║
-╚════════════════════════════╝
-
-🌟 SESSION CONNECTED SUCCESSFULLY 🌟
-
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ ✅ Multi Device Connected
-┃ ✅ V10 BUGBOT ENGINE ACTIVE
-┃ ✅ Whatsapp Crasher ON
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🚀 *BOT IS NOW READY FOR OPERATIONS*
-
-💡 Type *.menu* to view commands
-`;
-                const jid = number + "@s.whatsapp.net";
-                await sock.sendMessage(jid, { text: caption }).catch(() => {});
-            } catch (e) {
-                console.log("Welcome message error:", e.message);
-            }
-
-            return res.json({
-                status: "connected",
-                authenticated: true,
-                number: number,
-                user: user?.name || user?.id,
-                message: "✅ Pairing successful! Bot is ready."
-            });
-        }
-
-        return res.json({
-            status: "waiting",
-            number: number,
-            message: "Waiting for pairing confirmation on phone..."
-        });
-
-    } catch (err) {
-        console.log("Check error:", err.message);
-        return res.json({
-            status: "error",
-            message: err.message
-        });
-    }
+    });
+    setTimeout(() => process.exit(0), 2000);
 });
 
 module.exports = router;
