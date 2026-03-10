@@ -72,7 +72,7 @@
     "safe-stable-stringify": "^2.5.0",
     "set-cookie": "^0.0.4",
     "sharp": "^0.32.6",
-    "imagekit": "^5.1.0"
+    "imagekit": "^5.1.0",
     "sequelize": "^6.37.5",
     "sqlite3": "^5.1.7-rc.0",
     "util": "^0.12.4",
