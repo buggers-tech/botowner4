@@ -4,6 +4,12 @@ async function helpCommand(sock, chatId, message) {
 
 try {
 
+const banners = [
+"https://i.imgur.com/MJIZMZT.jpg"
+]
+
+const banner = banners[Math.floor(Math.random()*banners.length)]
+
 // ================= GENERAL =================
 const GENERAL = `
 ╭────────────────────⬣
@@ -217,7 +223,8 @@ const sections = [
 const cards = sections.map(sec => ({
 header:{
 title:sec.title,
-hasMediaAttachment:false
+hasMediaAttachment:true,
+imageMessage:{ url: banner }
 },
 body:{text:sec.text},
 footer:{text:settings.botName || "BUGBOT"},
