@@ -1,17 +1,10 @@
-const settings = require('../settings')
-const axios = require("axios")
+const { generateWAMessageFromContent } = require("@whiskeysockets/baileys")
 
 async function helpCommand(sock, chatId, message) {
 
-try {
+const banner = "https://files.catbox.moe/ip70j9.jpg"
 
-const banners = [
-"https://files.catbox.moe/ip70j9.jpg"
-]
-
-const banner = banners[Math.floor(Math.random()*banners.length)]
-
-// ================= GENERAL =================
+// GENERAL
 const GENERAL = `
 ╭────────────────────⬣
 │ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
@@ -50,16 +43,10 @@ const GENERAL = `
 ╰────────────────────⬣
 `
 
-// ================= ADMIN =================
+// ADMIN
 const ADMIN = `
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇ADMIN◇⭐
+│ ⭐◇ADMIN COMMANDS◇⭐
 │──────────────
 │ .ban @user
 │ .promote @user
@@ -74,31 +61,25 @@ const ADMIN = `
 │ .antilink
 │ .antibadword
 │ .clear
-│ .tag <message>
+│ .tag
 │ .tagall
 │ .tagnotadmin
-│ .hidetag <message>
+│ .hidetag
 │ .chatbot
 │ .resetlink
-│ .antitag on/off
-│ .welcome on/off
-│ .goodbye on/off
+│ .antitag
+│ .welcome
+│ .goodbye
 │ .setgdesc
 │ .setgname
 │ .setgpp
 ╰────────────────────⬣
 `
 
-// ================= OWNER =================
+// OWNER
 const OWNER = `
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇OWNER◇⭐
+│ ⭐◇OWNER COMMANDS◇⭐
 │──────────────
 │ .mode public
 │ .mode private
@@ -123,16 +104,10 @@ const OWNER = `
 ╰────────────────────⬣
 `
 
-// ================= BUG =================
+// BUGFIXED
 const BUG = `
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇BUGFIXED◇⭐
+│ ⭐◇BUGFIXED SULEXH◇⭐
 │──────────────
 │ .pair <number>
 │ .user
@@ -140,16 +115,10 @@ const BUG = `
 ╰────────────────────⬣
 `
 
-// ================= IMAGE =================
+// IMAGE
 const IMAGE = `
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇IMAGE LAB◇⭐
+│ ⭐◇IMAGE & STICKER LAB◇⭐
 │──────────────
 │ .sticker
 │ .simage
@@ -166,19 +135,13 @@ const IMAGE = `
 ╰────────────────────⬣
 `
 
-// ================= DOWNLOAD =================
+// DOWNLOAD
 const DOWNLOAD = `
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇DOWNLOAD◇⭐
+│ ⭐◇DOWNLOADERS◇⭐
 │──────────────
-│ .play <song>
-│ .song <song>
+│ .play
+│ .song
 │ .spotify
 │ .instagram
 │ .facebook
@@ -190,16 +153,10 @@ const DOWNLOAD = `
 ╰────────────────────⬣
 `
 
-// ================= FUN =================
+// FUN
 const FUN = `
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇FUN◇⭐
+│ ⭐◇FUN GAME ZONE◇⭐
 │──────────────
 │ .truth
 │ .dare
@@ -211,45 +168,51 @@ const FUN = `
 ╰────────────────────⬣
 `
 
-// ================= MENU CARDS =================
+// PREMIUM
+const PREMIUM = `
+╭────────────────────⬣
+│ ⭐◇PREMIUM / SECRET◇⭐
+│──────────────
+│ BUG MENU
+│ Flood Protection
+│ Hidden BUG Engine ON
+╰────────────────────⬣
+`
+
 const sections = [
-{title:"⭐ GENERAL",text:GENERAL},
-{title:"⭐ ADMIN",text:ADMIN},
-{title:"⭐ OWNER",text:OWNER},
-{title:"⭐ BUGFIXED",text:BUG},
-{title:"⭐ IMAGE LAB",text:IMAGE},
-{title:"⭐ DOWNLOAD",text:DOWNLOAD},
-{title:"⭐ FUN",text:FUN}
+{title:"⭐ GENERAL", text:GENERAL},
+{title:"⭐ ADMIN", text:ADMIN},
+{title:"⭐ OWNER", text:OWNER},
+{title:"⭐ BUGFIXED", text:BUG},
+{title:"⭐ IMAGE LAB", text:IMAGE},
+{title:"⭐ DOWNLOAD", text:DOWNLOAD},
+{title:"⭐ FUN", text:FUN},
+{title:"⭐ PREMIUM", text:PREMIUM}
 ]
 
 const cards = sections.map(sec => ({
-title: sec.title,
-description: sec.text,
-rowId: ".menu",
-image: { url: banner }
+header:{
+title:sec.title,
+imageMessage:{url:banner},
+hasMediaAttachment:true
+},
+body:{text:sec.text},
+footer:{text:"Powered by Team-Bandhaeali"},
+buttons:[]
 }))
 
-// send as simple list message (works everywhere)
-await sock.sendMessage(chatId,{
-text:`╭───〔 🤖 ${settings.botName || "BUGBOT"} 〕───⬣
-│ 👤 User : ${message.pushName || "User"}
-│ ⚡ Mode : ${settings.mode || "Public"}
-│ ⏱ Uptime : ${process.uptime().toFixed(0)}s
-╰────────────────────⬣
-Swipe / select a card below →`,
-footer: settings.botName || "BUGBOT",
-title: "⭐ BUGFIXED SULEXH BOT MENU ⭐",
-templateButtons: cards.map(c=>({
-urlButton:{displayText:"🌐 JOIN GROUP",url:"https://chat.whatsapp.com/GyZBMUtrw9LIlV6htLvkCK"}
-}))
-},{quoted:message})
-
-}catch(err){
-console.error("MENU ERROR:",err)
-await sock.sendMessage(chatId,{
-text:"Menu failed to load."
-},{quoted:message})
+const msg = generateWAMessageFromContent(chatId,{
+viewOnceMessage:{
+message:{
+interactiveMessage:{
+body:{text:"⭐ SMD-MINI MENU ⭐"},
+carouselMessage:{cards}
 }
+}
+}
+},{userJid:sock.user.id})
+
+await sock.relayMessage(chatId,msg.message,{messageId:msg.key.id})
 
 }
 
