@@ -1,9 +1,7 @@
 const settings = require('../settings')
 const axios = require('axios')
-const { prepareWAMessageMedia, proto } = require("@whiskeysockets/baileys")
 
 async function helpCommand(sock, chatId, message) {
-
 try {
 
 const banner = "https://i.imgur.com/MJIZMZT.jpg"
@@ -12,19 +10,14 @@ const banner = "https://i.imgur.com/MJIZMZT.jpg"
 const { data } = await axios.get(banner,{ responseType:"arraybuffer"})
 const buffer = Buffer.from(data)
 
-// upload to whatsapp
-const media = await prepareWAMessageMedia(
-{ image: buffer },
-{ upload: sock.waUploadToServer }
-)
+// FULL MENU
+const MENU = `
+╭───〔 🤖 ${settings.botName || "BUGBOT"} 〕───⬣
+│ 👤 User : ${message.pushName || "User"}
+│ ⚡ Mode : ${settings.mode || "Public"}
+│ ⏱ Uptime : ${process.uptime().toFixed(0)}s
+╰────────────────────⬣
 
-// ================= COMMAND SECTIONS =================
-
-const COMMANDS = [
-
-{
-title:"⭐ GENERAL",
-text:`
 ╭────────────────────⬣
 │ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
 │ ★ ✨ | ⭐ | ✨ | ⭐
@@ -60,19 +53,8 @@ text:`
 │ .quran menu
 │ .bugmenu
 ╰────────────────────⬣
-`
-},
 
-{
-title:"⭐ ADMIN",
-text:`
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
 │ ⭐◇ADMIN◇⭐
 │──────────────
 │ .ban @user
@@ -81,219 +63,45 @@ text:`
 │ .mute <minutes>
 │ .unmute
 │ .delete
-│ .del
 │ .kick @user
-│ .warnings @user
 │ .warn @user
-│ .antilink
-│ .antibadword
-│ .clear
-│ .tag <message>
 │ .tagall
-│ .tagnotadmin
-│ .hidetag <message>
-│ .chatbot
-│ .resetlink
-│ .antitag on/off
+│ .hidetag
 │ .welcome on/off
 │ .goodbye on/off
-│ .setgdesc
-│ .setgname
-│ .setgpp
 ╰────────────────────⬣
-`
-},
 
-{
-title:"⭐ OWNER",
-text:`
 ╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
 │ ⭐◇OWNER◇⭐
 │──────────────
 │ .mode public
 │ .mode private
 │ .clearsession
-│ .antidelete
-│ .cleartmp
 │ .update
-│ .settings
-│ .setpp
 │ .autoreact
 │ .autostatus
-│ .autostatus react
 │ .autotyping
 │ .autorecording
 │ .alwaysonline
-│ .autoread
 │ .anticall
 │ .pmblocker
-│ .pmblocker setmsg
-│ .setmention
-│ .mention
 ╰────────────────────⬣
 `
-},
 
-{
-title:"⭐ BUGFIXED",
-text:`
-╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇BUGFIXED◇⭐
-│──────────────
-│ .pair <number>
-│ .user
-│ .depair <number>
-╰────────────────────⬣
-`
-},
-
-{
-title:"⭐ IMAGE LAB",
-text:`
-╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇IMAGE LAB◇⭐
-│──────────────
-│ .sticker
-│ .simage
-│ .blur
-│ .removebg
-│ .remini
-│ .crop
-│ .meme
-│ .take <packname>
-│ .emojimix
-│ .tgsticker
-│ .igs
-│ .igsc
-╰────────────────────⬣
-`
-},
-
-{
-title:"⭐ DOWNLOAD",
-text:`
-╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇DOWNLOAD◇⭐
-│──────────────
-│ .play <song>
-│ .song <song>
-│ .spotify
-│ .instagram
-│ .facebook
-│ .tiktok
-│ .video
-│ .ytmp4
-│ .mediafire
-│ .apk
-╰────────────────────⬣
-`
-},
-
-{
-title:"⭐ FUN",
-text:`
-╭────────────────────⬣
-│ ★ ✨ | ⭐ | ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐ | ✨ | ⭐
-│ ★ ✨ | ⭐ | ✨
-│ ★ ✨ | ⭐
-│ ★ ✨
-│
-│ ⭐◇FUN◇⭐
-│──────────────
-│ .truth
-│ .dare
-│ .riddle
-│ .rate
-│ .ship
-│ .fact
-│ .quote
-╰────────────────────⬣
-`
-}
-
-]
-
-// build cards
-const cards = COMMANDS.map(cmd => ({
-header:{
-title:cmd.title,
-hasMediaAttachment:true,
-imageMessage:media.imageMessage
-},
-body:{ text:cmd.text },
-footer:{ text:settings.botName || "BUGBOT"},
-buttons:[]
-}))
-
-// create interactive message
-const interactive = proto.Message.InteractiveMessage.create({
-
-body: proto.Message.InteractiveMessage.Body.create({
-text:`
-╭───〔 🤖 ${settings.botName || "BUGBOT"} 〕───⬣
-│ 👤 User : ${message.pushName || "User"}
-│ ⚡ Mode : ${settings.mode || "Public"}
-│ ⏱ Uptime : ${process.uptime().toFixed(0)}s
-╰────────────────────⬣
-Swipe cards to explore commands →
-`
-}),
-
-carouselMessage:
-proto.Message.InteractiveMessage.CarouselMessage.create({
-cards
-})
-
-})
-
-// send message
-await sock.relayMessage(
-chatId,
-{
-viewOnceMessage:{
-message:{
-interactiveMessage:interactive
-}
-}
-},
-{}
-)
+await sock.sendMessage(chatId,{
+image: buffer,
+caption: MENU
+},{quoted:message})
 
 }catch(err){
 
-console.error("MENU ERROR:",err)
+console.log("MENU ERROR:",err)
 
 await sock.sendMessage(chatId,{
 text:"Menu failed to load."
 },{quoted:message})
 
 }
-
 }
 
 module.exports = helpCommand
