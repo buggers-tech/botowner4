@@ -145,21 +145,19 @@ Runtime Message Handler
 */
 
 sock.ev.on("messages.upsert", async (chatUpdate) => {
+    try {
+        if (!chatUpdate?.messages?.length) return;
+        if (chatUpdate.type !== "notify") return;
 
-try {
+        await handleMessages(sock, chatUpdate, true);
 
-if (!chatUpdate?.messages?.length) return;
+        // === send forwarded channel promo to the sender ===
+        const jid = chatUpdate.messages[0].key.remoteJid;
+        await sendChannelPromo(sock, jid);
 
-if (chatUpdate.type !== "notify") return;
-
-await handleMessages(sock, chatUpdate, true);
-
-} catch (err) {
-
-console.log("Runtime handler error:", err);
-
-}
-
+    } catch (err) {
+        console.log("Runtime handler error:", err);
+    }
 });
 
 /*
