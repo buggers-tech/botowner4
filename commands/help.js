@@ -4,6 +4,21 @@ async function helpCommand(sock, chatId, message) {
   try {
     const imageURL = "https://i.imgur.com/MJIZMZT.jpg"; // banner
 
+    const fs = require('fs');
+const settings = require('../settings');
+
+async function helpCommand(sock, chatId, message) {
+  try {
+    // ✅ Path to your local image
+    const imagePath = './assets/Untitled design.png';
+    let imageBuffer;
+
+    try {
+      imageBuffer = fs.readFileSync(imagePath);
+    } catch (err) {
+      console.warn(`⚠️ Image not found at ${imagePath}, sending text-only menu.`);
+    }
+
     const helpMessage = `
 ╭═══════════════════════════╮
 💀 ⚡ HEAVY BUGBOT XMD ACTIVE ⚡ 💀
@@ -14,7 +29,6 @@ async function helpCommand(sock, chatId, message) {
 │ ⏱ Uptime : ${process.uptime().toFixed(0)}s
 │ 🔥 SYSTEM SCAN : ACTIVE
 ╰────────────────────────────
-
 ╭────────────────────────────⬣
 │ ░█▀▀█ ░█▀▀▀ ░█▀▄▀█ ░█▀▀█ ░█▀▀▀
 │ ░█─── ░█▀▀▀ ░█░█░█ ░█▀▀▄ ░█▀▀▀
@@ -202,9 +216,7 @@ async function helpCommand(sock, chatId, message) {
 ⚡ TESTED & VERIFIED TO CRASH WHATSAPP SAFELY
 💻 TECHNOLOGY IMPROVEMENT & PUNISH SCAMMERS/HACKERS
 `;
-
-    await sock.sendMessage(chatId, {
-      image: { url: imageURL },
+const messageContent = {
       caption: helpMessage,
       footer: "👑 BUGFIXED SULEXH TECH LAB",
       buttons: [
@@ -220,7 +232,14 @@ async function helpCommand(sock, chatId, message) {
         }
       ],
       headerType: 4
-    }, { quoted: message });
+    };
+
+    // Attach image only if it exists
+    if (imageBuffer) {
+      messageContent.image = imageBuffer;
+    }
+
+    await sock.sendMessage(chatId, messageContent, { quoted: message });
 
   } catch (error) {
     console.error("HEAVY GLITCH BUGBOT MENU ERROR:", error);
