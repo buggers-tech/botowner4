@@ -7,7 +7,6 @@ const router = express.Router();
 const pino = require("pino");
 const axios = require("axios");
 
-const lastPromo = new Map();
 const sessionSockets = new Map();
 
 const {
@@ -19,33 +18,7 @@ DisconnectReason
 } = require("@whiskeysockets/baileys");
 
 /*
-
-CHANNEL PROMO FUNCTION
-
-*/
-async function sendChannelPromo(sock, jid, text = "📢 Follow our official WhatsApp Channel for updates!") {
-try {
-await sock.sendMessage(jid, {
-text: text,
-contextInfo: {
-forwardingScore: 999,
-isForwarded: true,
-forwardedNewsletterMessageInfo: {
-newsletterJid: "120363416402842348@newsletter",
-newsletterName: "BUGFIXED SULEXH TECH",
-serverMessageId: 1
-}
-}
-});
-} catch (err) {
-console.log("Promo error:", err);
-}
-}
-
-/*
-
 CRASH PROTECTION
-
 */
 process.on("uncaughtException", err => {
 console.log("❌ Uncaught Exception:", err);
@@ -56,62 +29,21 @@ console.log("❌ Unhandled Rejection:", err);
 });
 
 /*
-
-ANTI SLEEP (RENDER KEEP ALIVE)
-
+ANTI SLEEP
 */
 const APP_URL = process.env.APP_URL || "https://bugbot-i3yc.onrender.com";
 
 setInterval(async () => {
 try {
 await axios.get(APP_URL);
-console.log("🔄 Self ping sent (anti sleep)");
+console.log("🔄 Self ping sent");
 } catch {
 console.log("Ping failed");
 }
 }, 4 * 60 * 1000);
 
 /*
-
-RAM AUTO CLEANER
-
-*/
-setInterval(() => {
-
-const used = process.memoryUsage();
-const mb = used.heapUsed / 1024 / 1024;
-
-console.log("🧠 RAM Usage:", mb.toFixed(2), "MB");
-
-if (mb > 350) {
-console.log("♻ Cleaning memory");
-global.gc && global.gc();
-}
-
-}, 60 * 1000);
-
-/*
-
-CLEAN DEAD SOCKETS
-
-*/
-setInterval(() => {
-
-for (const [key, sock] of sessionSockets) {
-
-if (!sock?.user) {
-sessionSockets.delete(key);
-console.log("🧹 Removed dead socket:", key);
-}
-
-}
-
-}, 5 * 60 * 1000);
-
-/*
-
 CONFIG
-
 */
 const SESSION_ROOT = "./session_pair";
 
@@ -120,9 +52,7 @@ fs.mkdirSync(SESSION_ROOT, { recursive: true });
 }
 
 /*
-
 SOCKET STARTER
-
 */
 async function startSocket(sessionPath, sessionKey) {
 
@@ -149,9 +79,7 @@ sessionSockets.set(sessionKey, sock);
 }
 
 /*
-
-Runtime Message Handler
-
+MESSAGE HANDLER
 */
 sock.ev.on("messages.upsert", async (chatUpdate) => {
 
@@ -162,13 +90,6 @@ if (chatUpdate.type !== "notify") return;
 
 await handleMessages(sock, chatUpdate, true);
 
-const jid = chatUpdate.messages[0].key.remoteJid;
-
-if (!lastPromo.get(jid) || Date.now() - lastPromo.get(jid) > 2 * 60 * 1000) {
-await sendChannelPromo(sock, jid);
-lastPromo.set(jid, Date.now());
-}
-
 } catch (err) {
 
 console.log("Runtime handler error:", err);
@@ -178,16 +99,12 @@ console.log("Runtime handler error:", err);
 });
 
 /*
-
-Creds Save
-
+SAVE CREDS
 */
 sock.ev.on("creds.update", saveCreds);
 
 /*
-
-Connection Handler
-
+CONNECTION HANDLER
 */
 sock.ev.on("connection.update", async (update) => {
 
@@ -242,12 +159,11 @@ console.log("✅ Startup message sent");
 /*
 AUTO RECONNECT
 */
-
 if (connection === "close") {
 
 const status = lastDisconnect?.error?.output?.statusCode;
 
-console.log("⚠ Connection closed. Auto reconnecting...");
+console.log("⚠ Connection closed");
 
 if (status !== DisconnectReason.loggedOut) {
 
@@ -257,7 +173,7 @@ startSocket(sessionPath, sessionKey);
 
 } else {
 
-console.log("❌ Logged out from WhatsApp.");
+console.log("❌ Logged out");
 
 }
 
@@ -276,27 +192,21 @@ return sock;
 }
 
 /*
-
 PAIR PAGE
-
 */
 router.get('/', (req, res) => {
 res.sendFile(process.cwd() + "/pair.html");
 });
 
 /*
-
-BOT STATUS ROUTE
-
+BOT STATUS
 */
 router.get('/alive', (req, res) => {
 res.send("Bot Alive");
 });
 
 /*
-
 PAIR CODE API
-
 */
 router.get('/code', async (req, res) => {
 
@@ -325,22 +235,6 @@ await new Promise(r => setTimeout(r, 2000));
 
 let code = await sock.requestPairingCode(number);
 
-const trackFile = "./data/paired_users.json";
-
-let users = [];
-
-try {
-users = JSON.parse(fs.readFileSync(trackFile, "utf8"));
-} catch {
-users = [];
-}
-
-if (!users.some(u => u.number === number)) {
-users.push({ number });
-}
-
-fs.writeFileSync(trackFile, JSON.stringify(users, null, 2));
-
 return res.json({
 code: code?.match(/.{1,4}/g)?.join("-") || code
 });
@@ -356,44 +250,5 @@ code: "Service Unavailable"
 }
 
 });
-
-/*
-
-RESTORE PAIRED SESSIONS
-
-*/
-async function restoreSessions() {
-
-const trackFile = "./data/paired_users.json";
-
-if (!fs.existsSync(trackFile)) return;
-
-let users = [];
-
-try {
-users = JSON.parse(fs.readFileSync(trackFile));
-} catch {
-users = [];
-}
-
-for (const user of users) {
-
-const number = user.number;
-const sessionPath = path.join(SESSION_ROOT, number);
-
-if (fs.existsSync(sessionPath)) {
-
-console.log("♻ Restoring session:", number);
-startSocket(sessionPath, number);
-
-}
-
-}
-
-}
-
-setTimeout(() => {
-restoreSessions();
-}, 5000);
 
 module.exports = router;
