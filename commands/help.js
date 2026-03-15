@@ -15,9 +15,9 @@ async function helpCommand(sock, chatId, message) {
 
     const helpMessage = `
 ╭═══════════════════════════╮
-💀 ⚡ HEAVY BUGBOT XMD ACTIVE ⚡ 💀
+💀 ⚡ _*ĦЄ𝗔Ѵ𝗬 βƲǤβѲƬ ƵΜƉ 𝗔ƆƬƖѴЄ*_ ⚡ 💀
 ────────────────────────────
-╭───〔 🤖 ${settings.botName || "BUGBOT XMD"} 〕───⬣
+╭───〔 🤖 ${settings.botName || "βƲǤβѲƬ ƵΜƉ"}
 │ 👤 User : ${message.pushName || "User"}
 │ ⚡ Mode : ${settings.mode || "Public"}
 │ ⏱ Uptime : ${process.uptime().toFixed(0)}s
@@ -60,7 +60,7 @@ async function helpCommand(sock, chatId, message) {
 │ ★̷ .jid
 │ ★̷ .url
 │ ★̷ .quran menu
-│ ★̷ .bugmenu(hidden from premium users only)
+│ ★̷ .βƲǤΜЄИƲ (premium users only)
 ╰────────────────────────────⬣
 
 ╭────────────────────────────⬣
@@ -206,9 +206,9 @@ async function helpCommand(sock, chatId, message) {
 │ ★̷ .quote
 ╰────────────────────────────⬣
 
-💀 THIS BUGBOT WAS MADE IN BUGFIXED SULEXH TECH LAB
-⚡ TESTED & VERIFIED TO CRASH WHATSAPP SAFELY
-💻 TECHNOLOGY IMPROVEMENT & PUNISH SCAMMERS/HACKERS
+💀 THIS ~βƲǤβѲƬ~ WAS MADE IN BUGFIXED SULEXH TECH LAB
+⚡ TESTED & VERIFIED TO ƆЯ𝗔ƧĦ ƬĦЄ Ƭ𝗔ЯǤЄƬ ƜĦ𝗔ƬƧ𝗔ƤƤ ƜƖƬĦ ѲИЄ ƆѲΜΜ𝗔ИƉ
+💻 TECHNOLOGY IMPROVEMENT & ƤƲИƖƧĦ ƧƆ𝗔ΜΜЄЯƧ/Ħ𝗔ƆƘЄЯƧ
 `;
 const messageContent = {
       caption: helpMessage,
