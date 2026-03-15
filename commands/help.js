@@ -3,14 +3,14 @@ const settings = require('../settings');
 
 async function helpCommand(sock, chatId, message) {
   try {
-    // ✅ Path to your local image
-    const imagePath = './assets/Untitled design.png';
-    let imageBuffer;
+
+    const videoPath = './assets/tiktokio.com1773559733_p0JOPHudQO0K6WDVT4KK.mp4';
+    let videoBuffer;
 
     try {
-      imageBuffer = fs.readFileSync(imagePath);
+      videoBuffer = fs.readFileSync(videoPath);
     } catch (err) {
-      console.warn(`⚠️ Image not found at ${imagePath}, sending text-only menu.`);
+      console.warn(`⚠️ Video not found at ${videoPath}, sending text-only menu.`);
     }
 
     const helpMessage = `
@@ -225,12 +225,12 @@ const messageContent = {
           type: 1
         }
       ],
-      headerType: 4
+      headerType: 5
     };
 
-    // Attach image only if it exists
-    if (imageBuffer) {
-      messageContent.image = imageBuffer;
+    if (videoBuffer) {
+      messageContent.video = videoBuffer;
+      messageContent.gifPlayback = true;
     }
 
     await sock.sendMessage(chatId, messageContent, { quoted: message });
