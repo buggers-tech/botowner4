@@ -196,7 +196,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             content.contextInfo.isForwarded = true;
 
             content.contextInfo.forwardedNewsletterMessageInfo = {
-                newsletterJid: ""120363416402842348@newsletter",
+                newsletterJid: "120363416402842348@newsletter",
                 newsletterName: "BUGFIXED SULEXH TECH",
                 serverMessageId: 1
             };
