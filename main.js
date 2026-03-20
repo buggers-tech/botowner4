@@ -170,8 +170,8 @@ const channelInfo = {
         forwardingScore: 1,
         isForwarded: true,
         forwardedNewsletterMessageInfo: {
-            newsletterJid: '0029VbAD3222f3EIZyXe6w16@broadcast',
-            newsletterName: 'BUGFIXED-SULEXH-XMD',
+            newsletterJid: '"120363416402842348@newsletter',
+            newsletterName: 'BUGFIXED-SULEXH-TECH',
             serverMessageId: -1
         }
     }
@@ -196,7 +196,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             content.contextInfo.isForwarded = true;
 
             content.contextInfo.forwardedNewsletterMessageInfo = {
-                newsletterJid: "0029VbAD3222f3EIZyXe6w16@broadcast",
+                newsletterJid: ""120363416402842348@newsletter",
                 newsletterName: "BUGFIXED SULEXH TECH",
                 serverMessageId: 1
             };
