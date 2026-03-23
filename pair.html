@@ -1,200 +1,73 @@
-MULTITYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pairing Code</title>
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-
 <style>
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-  font-family: 'Segoe UI', sans-serif;
-}
-
-body{
-  height:100vh;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  background:black;
-  overflow:hidden;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', sans-serif;}
+body{height:100vh;display:flex;justify-content:center;align-items:center;background:black;}
 
 /* STATUS BAR */
 .status-bar{
-  position:absolute;
-  top:0;
-  width:100%;
-  padding:8px 15px;
-  display:flex;
-  justify-content:space-between;
-  color:white;
-  font-size:14px;
+  position:absolute; top:0; width:100%; padding:8px 15px;
+  display:flex; justify-content:space-between; color:white; font-size:14px;
 }
 
 /* CARD */
 .card{
-  width:330px;
-  border-radius:20px;
-  padding:15px;
-  background: rgba(20,20,20,0.7);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 30px rgba(0,255,150,0.3);
-  position:relative;
+  width:95%; max-width:380px; border-radius:20px; padding:15px;
+  background: rgba(20,20,20,0.7); backdrop-filter: blur(10px);
+  box-shadow: 0 0 30px rgba(0,255,150,0.3); position:relative;
 }
 
 /* HEADER */
-.header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-.user{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.user img{
-  width:40px;
-  height:40px;
-  border-radius:50%;
-}
-
-.username{
-  color:orange;
-  font-weight:bold;
-}
-
-/* BATTERY */
-.battery{
-  background:#0f0;
-  padding:5px 12px;
-  border-radius:20px;
-  color:black;
-  font-weight:bold;
-}
+.header{display:flex;justify-content:space-between;align-items:center;}
+.user{display:flex;align-items:center;gap:10px;}
+.user img{width:40px;height:40px;border-radius:50%;}
+.username{color:orange;font-weight:bold;}
+.battery{background:#0f0;padding:5px 12px;border-radius:20px;color:black;font-weight:bold;}
 
 /* TITLE */
-.title{
-  text-align:center;
-  font-size:28px;
-  font-weight:bold;
-  background: linear-gradient(90deg, orange, yellow, limegreen);
-  -webkit-background-clip:text;
-  color:transparent;
-  margin:15px 0;
-}
+.title{text-align:center;font-size:28px;font-weight:bold;background:linear-gradient(90deg,orange,yellow,limegreen);
+-webkit-background-clip:text;color:transparent;margin:15px 0;}
 
 /* SUBTEXT */
-.sub{
-  text-align:center;
-  color:#ccc;
-  font-size:13px;
-}
+.sub{text-align:center;color:#ccc;font-size:13px;}
 
 /* INPUT */
-.input-box{
-  margin-top:10px;
-}
-
-.input-box input{
-  width:100%;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  outline:none;
-}
+.input-box{margin-top:10px;}
+.input-box input{width:100%;padding:10px;border:none;border-radius:10px;outline:none;}
 
 /* BUTTON */
-.btn{
-  margin-top:10px;
-  width:100%;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  font-weight:bold;
-  background: linear-gradient(135deg, orange, green);
-  color:white;
-  cursor:pointer;
-}
+.btn{margin-top:10px;width:100%;padding:10px;border:none;border-radius:10px;font-weight:bold;
+background:linear-gradient(135deg,orange,green);color:white;cursor:pointer;}
 
 /* CODE */
-.code-box{
-  margin-top:20px;
-  padding:15px;
-  border-radius:15px;
-  background: linear-gradient(135deg,#ff4d4d,#33cc33);
-  text-align:center;
-  font-size:20px;
-  font-weight:bold;
-  letter-spacing:3px;
-}
+.code-box{margin-top:20px;padding:15px;border-radius:15px;background:linear-gradient(135deg,#ff4d4d,#33cc33);
+text-align:center;font-size:20px;font-weight:bold;letter-spacing:3px;}
 
 /* ACTIONS */
-.actions{
-  display:flex;
-  justify-content:space-around;
-  margin-top:10px;
-  color:white;
-  font-size:13px;
-}
-
-.actions span{
-  cursor:pointer;
-}
+.actions{display:flex;justify-content:space-around;margin-top:10px;color:white;font-size:13px;}
+.actions span{cursor:pointer;}
 
 /* COPY BTN */
-.copy-btn{
-  margin-top:10px;
-  background:#00ff66;
-  border:none;
-  padding:10px;
-  border-radius:20px;
-  width:100%;
-  font-weight:bold;
-}
+.copy-btn{margin-top:10px;background:#00ff66;border:none;padding:10px;border-radius:20px;width:100%;font-weight:bold;}
 
 /* MUSIC BUTTON */
-.music-btn{
-  position:absolute;
-  bottom:-60px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#111;
-  color:white;
-  padding:10px 20px;
-  border-radius:20px;
-  cursor:pointer;
-  border:1px solid #333;
-}
+.music-btn{position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);
+background:#111;color:white;padding:10px 20px;border-radius:20px;cursor:pointer;border:1px solid #333;}
 
 /* GLOW */
 .card::before{
-  content:"";
-  position:absolute;
-  inset:-2px;
-  border-radius:20px;
-  background:linear-gradient(45deg,red,orange,green,cyan);
-  z-index:-1;
-  filter:blur(10px);
-  opacity:0.5;
-  animation: glow 5s linear infinite;
+  content:""; position:absolute; inset:-2px; border-radius:20px;
+  background:linear-gradient(45deg,red,orange,green,cyan); z-index:-1; filter:blur(10px);
+  opacity:0.5; animation: glow 5s linear infinite;
 }
-
-@keyframes glow{
-  0%{filter:hue-rotate(0deg);}
-  100%{filter:hue-rotate(360deg);}
-}
-
+@keyframes glow{0%{filter:hue-rotate(0deg);}100%{filter:hue-rotate(360deg);}}
 </style>
 </head>
-
 <body>
 
 <!-- STATUS -->
@@ -205,12 +78,11 @@ body{
 
 <!-- AUDIO -->
 <audio id="bg-music" loop>
-  <source src="./assets/Chunchun maqanis.mp3" type="audio/mpeg">
+  <source src="https://files.catbox.moe/s8tp1b.mp3" type="audio/mpeg">
 </audio>
 
 <!-- CARD -->
 <div class="card">
-
   <div class="header">
     <div class="user">
       <img src="https://i.imgur.com/6VBx3io.png">
@@ -220,8 +92,7 @@ body{
   </div>
 
   <div class="title">PAIRING CODE</div>
-
-  <div class="sub">BUGFIXED-SULEXH-BUGBOT MULTI DEVICE</div>
+  <div class="sub">BUGBOT-XMD MULTI DEVICE</div>
   <div class="sub">Enter your number with country code</div>
 
   <div class="input-box">
@@ -232,14 +103,10 @@ body{
 
   <div id="pair"></div>
 
-  <div class="music-btn" onclick="toggleMusic()" id="musicBtn">
-    🎵 PLAY MUSIC
-  </div>
-
+  <div class="music-btn" onclick="toggleMusic()" id="musicBtn">🎵 PLAY MUSIC</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js"></script>
-
 <script>
 let a = document.getElementById("pair");
 let b = document.getElementById("submit");
@@ -250,8 +117,7 @@ let musicBtn = document.getElementById("musicBtn");
 /* TIME */
 function updateTime(){
   let now = new Date();
-  document.getElementById("time").innerText =
-    now.getHours() + ":" + now.getMinutes().toString().padStart(2,'0');
+  document.getElementById("time").innerText = now.getHours() + ":" + now.getMinutes().toString().padStart(2,'0');
 }
 setInterval(updateTime,1000);
 
@@ -259,13 +125,21 @@ setInterval(updateTime,1000);
 function toggleMusic(){
   if(music.paused){
     music.volume = 0.4;
-    music.play();
-    musicBtn.innerText = "⏸ STOP BUGBOT MUSIC";
+    music.play().then(()=>{musicBtn.innerText="⏸ STOP BUGBOT XMD MUSIC";})
+    .catch(()=>{alert("Tap again to enable sound 🔊");});
   }else{
     music.pause();
-    musicBtn.innerText = "🎵 PLAY BUGBOT MUSIC";
+    musicBtn.innerText="🎵 PLAY BUGBOT XMD MUSIC";
   }
 }
+
+/* AUTO PLAY ON FIRST TAP */
+document.body.addEventListener("click", () => {
+  if(music.paused){
+    music.volume = 0.3;
+    music.play().catch(()=>{});
+  }
+},{once:true});
 
 /* COPY */
 async function copyCode(){
@@ -276,32 +150,21 @@ async function copyCode(){
 
 /* GENERATE */
 b.onclick = async () => {
-
-  if(!c.value){
-    a.innerHTML = '<div style="color:white">Enter number</div>';
-    return;
-  }
-
+  if(!c.value){a.innerHTML='<div style="color:white">Enter number</div>';return;}
   let num = c.value.replace(/[^0-9]/g,"");
-
-  a.innerHTML = '<div style="color:white">Please wait...</div>';
-
+  a.innerHTML='<div style="color:white">Please wait...</div>';
   let {data} = await axios(`/pair/code?number=${num}`);
   let code = data.code || "ERROR";
-
   a.innerHTML = `
     <div class="code-box">CODE: <span id="realCode">${code}</span></div>
-
     <div class="actions">
       <span onclick="copyCode()">Copy</span>
       <span>Select</span>
       <span>Share</span>
     </div>
-
     <button class="copy-btn" id="copyBtn" onclick="copyCode()">COPY</button>
   `;
 }
 </script>
-
 </body>
 </html>
