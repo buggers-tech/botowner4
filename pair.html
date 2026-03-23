@@ -3,149 +3,201 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BUGBOT WEBSITE UI</title>
+<title>Ultimate Pairing UI</title>
 
 <style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI;}
+
 body{
-  margin:0;
-  background:#0b141a;
-  font-family:Arial, sans-serif;
-  color:#e9edef;
+  background:black;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
 }
 
-/* STATUS */
+/* CARD */
+.card{
+  width:100%;
+  height:100vh;
+  position:relative;
+  background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+  overflow:hidden;
+}
+
+/* GLOW */
+.card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at 30% 30%, #ff4d4d, transparent 40%),
+             radial-gradient(circle at 70% 70%, #33ccff, transparent 40%);
+  filter:blur(120px);
+  opacity:0.4;
+  animation:move 15s infinite alternate;
+}
+@keyframes move{
+  0%{transform:translate(0,0);}
+  100%{transform:translate(50px,-50px);}
+}
+
+/* PARTICLES */
+.particle{
+  position:absolute;
+  border-radius:50%;
+  opacity:0.5;
+  animation:float 10s infinite;
+}
+@keyframes float{
+  0%{transform:translateY(0);}
+  50%{transform:translateY(-150px);}
+  100%{transform:translateY(0);}
+}
+
+/* STATUS BAR */
 .status{
+  position:absolute;
+  top:10px;
+  width:95%;
+  left:2.5%;
   display:flex;
   justify-content:space-between;
-  padding:6px 12px;
+  align-items:center;
+  color:white;
   font-size:13px;
+}
+
+.right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* SIGNAL */
+.signal{
+  display:flex;
+  gap:2px;
+}
+.signal span{
+  width:3px;
+  background:white;
+}
+.signal span:nth-child(1){height:4px;}
+.signal span:nth-child(2){height:6px;}
+.signal span:nth-child(3){height:8px;}
+.signal span:nth-child(4){height:10px;}
+
+/* WIFI */
+.wifi{
+  width:14px;
+  height:10px;
+  border:2px solid white;
+  border-top:none;
+  border-radius:0 0 10px 10px;
+}
+
+/* BATTERY */
+.battery-box{
+  width:22px;
+  height:10px;
+  border:2px solid white;
+  position:relative;
+}
+.battery-box::after{
+  content:"";
+  position:absolute;
+  right:-4px;
+  top:2px;
+  width:2px;
+  height:4px;
+  background:white;
+}
+.battery-fill{
+  height:100%;
+  width:100%;
+  background:#00ff66;
+}
+
+/* CONTENT */
+.content{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:90%;
+  max-width:400px;
+  text-align:center;
+  color:white;
 }
 
 /* HEADER */
 .header{
   display:flex;
   justify-content:space-between;
-  padding:10px 12px;
+  margin-bottom:20px;
 }
-.header-left{
-  display:flex;
-  gap:10px;
-}
-.sub{font-size:12px;color:#8696a0;}
-
-/* CARD */
-.card{
-  margin:10px;
-  background:#111b21;
-  border-radius:8px;
-  overflow:hidden;
-}
-
-/* TOP */
-.top{
-  display:flex;
-  justify-content:space-between;
-  padding:12px;
-}
-.top-left{
+.user{
   display:flex;
   gap:10px;
   align-items:center;
 }
-.avatar{
-  width:40px;height:40px;border-radius:50%;background:#25d366;
+.user img{
+  width:45px;
+  border-radius:50%;
 }
 .username{
-  color:#f0b429;
-  font-weight:600;
+  color:orange;
+  font-weight:bold;
 }
 .battery{
-  background:#25d366;
+  background:#00ff66;
   color:black;
-  padding:5px 12px;
+  padding:5px 10px;
   border-radius:20px;
 }
 
-/* CONTENT */
-.content{
-  padding:20px;
-  text-align:center;
-  background:linear-gradient(135deg,#0a0f2c,#0f2a44);
-  position:relative;
-  overflow:hidden;
-}
-
-/* BLUR OVERLAY */
-.overlay{
-  position:absolute;
-  inset:0;
-  backdrop-filter:blur(8px);
-  background:rgba(0,0,0,0.3);
-  transition:0.3s;
-}
-
-/* PLAY BUTTON */
-.play{
-  position:absolute;
-  top:45%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  background:rgba(0,0,0,0.6);
-  padding:18px;
-  border-radius:50%;
-  font-size:28px;
-  cursor:pointer;
-  z-index:2;
+/* TITLE */
+.title{
+  font-size:32px;
+  margin:10px 0;
+  background:linear-gradient(90deg,orange,yellow,green);
+  -webkit-background-clip:text;
+  color:transparent;
 }
 
 /* INPUT */
 input{
-  width:90%;
-  padding:14px;
+  width:100%;
+  padding:15px;
+  border-radius:10px;
   border:none;
-  border-radius:8px;
-  margin:15px 0;
+  margin-top:10px;
 }
 
 /* BUTTON */
 button{
-  width:90%;
-  padding:14px;
+  width:100%;
+  padding:15px;
+  margin-top:10px;
   border:none;
-  border-radius:25px;
-  background:linear-gradient(90deg,#ff9900,#00cc33);
+  border-radius:12px;
+  background:linear-gradient(90deg,orange,green);
   color:white;
+  font-weight:bold;
 }
 
-/* CAPTION */
-.caption{
-  padding:12px;
-  color:#8696a0;
-}
-
-/* PROGRESS */
-.progress{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:0 12px 12px;
-  font-size:13px;
-}
-.bar{
-  flex:1;
-  height:4px;
-  background:#2a3942;
-  position:relative;
-  cursor:pointer;
-}
-.fill{
-  height:100%;
-  width:0%;
-  background:#25d366;
-}
-
-/* SPEED */
-.speed{
+/* MUSIC BUTTON */
+.music{
+  position:absolute;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#111;
+  padding:12px 25px;
+  border-radius:25px;
+  border:1px solid #333;
+  color:white;
   cursor:pointer;
 }
 </style>
@@ -153,70 +205,60 @@ button{
 
 <body>
 
-<div class="status">
-  <span id="time">15:14</span>
-  <span>▂▃▅ ▂▃▅ 🔋14%</span>
-</div>
+<div class="card" id="card">
 
-<div class="header">
-  <div class="header-left">
-    ←
-    <div>
-      <div>You</div>
-      <div class="sub">Today, 11:32</div>
+  <!-- STATUS -->
+  <div class="status">
+    <span id="time"></span>
+
+    <div class="right">
+      <span id="speed">0.0 k/s</span>
+
+      <div class="signal">
+        <span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="wifi"></div>
+
+      <div class="battery-box">
+        <div class="battery-fill" id="batteryFill"></div>
+      </div>
+
+      <span id="batteryText">100%</span>
     </div>
   </div>
-  <div>⭐ ⋮</div>
-</div>
 
-<div class="card">
+  <!-- CONTENT -->
+  <div class="content">
 
-  <div class="top">
-    <div class="top-left">
-      <div class="avatar"></div>
-      <div class="username">BUGFIXED SULEXH TECH</div>
+    <div class="header">
+      <div class="user">
+        <img src="https://i.imgur.com/6VBx3io.png">
+        <div class="username">bugfixed sulexh tech</div>
+      </div>
+      <div class="battery">100%</div>
     </div>
-    <div class="battery">100%</div>
-  </div>
 
-  <div class="content" onclick="togglePlay()">
+    <div class="title">PAIRING CODE</div>
 
-    <div class="overlay" id="overlay"></div>
-
-    <div class="play" id="playBtn">▶</div>
-
-    <h2>PAIRING CODE</h2>
-
-    <input placeholder="+2547XXXXXXX">
+    <input placeholder="+2547XXXXXXXX">
     <button>GENERATE</button>
 
   </div>
 
-  <div class="progress">
-    <span id="current">00:00</span>
-    <div class="bar" onclick="seek(event)">
-      <div class="fill" id="fill"></div>
-    </div>
-    <span id="duration">00:57</span>
-    <span class="speed" onclick="changeSpeed()" id="speed">1.0x</span>
+  <!-- MUSIC BUTTON -->
+  <div class="music" onclick="toggleMusic()" id="musicBtn">
+    ⏸ Stop Music
   </div>
 
 </div>
 
-<audio id="music">
+<!-- MUSIC -->
+<audio id="music" loop autoplay>
   <source src="https://files.catbox.moe/s8tp1b.mp3">
 </audio>
 
 <script>
-let music = document.getElementById("music");
-let fill = document.getElementById("fill");
-let current = document.getElementById("current");
-let playBtn = document.getElementById("playBtn");
-let overlay = document.getElementById("overlay");
-let speedText = document.getElementById("speed");
-
-let speeds = [1,1.5,2];
-let speedIndex = 0;
 
 /* TIME */
 setInterval(()=>{
@@ -225,41 +267,69 @@ setInterval(()=>{
     now.getHours()+":"+now.getMinutes().toString().padStart(2,'0');
 },1000);
 
-/* PLAY */
-function togglePlay(){
+/* NETWORK SPEED */
+setInterval(()=>{
+  let speed = (Math.random()*10).toFixed(1);
+  document.getElementById("speed").innerText = speed + " k/s";
+},1500);
+
+/* BATTERY */
+let level = 100;
+let charging = false;
+
+setInterval(()=>{
+  if(charging){
+    level+=1;
+    if(level>=100) charging=false;
+  }else{
+    level-=0.2;
+    if(level<=20) charging=true;
+  }
+
+  document.getElementById("batteryFill").style.width = level+"%";
+  document.getElementById("batteryText").innerText = Math.floor(level)+"%";
+},2000);
+
+/* MUSIC */
+let music = document.getElementById("music");
+let btn = document.getElementById("musicBtn");
+
+/* AUTOPLAY FIX */
+window.addEventListener("load", ()=>{
+  music.volume = 0.4;
+  let p = music.play();
+  if(p !== undefined){
+    p.catch(()=>{
+      document.body.addEventListener("click", ()=>{
+        music.play().catch(()=>{});
+      },{once:true});
+    });
+  }
+});
+
+/* BUTTON CONTROL */
+function toggleMusic(){
   if(music.paused){
     music.play();
-    playBtn.innerText="⏸";
-    overlay.style.opacity="0";
+    btn.innerText="⏸ Stop Music";
   }else{
     music.pause();
-    playBtn.innerText="▶";
-    overlay.style.opacity="1";
+    btn.innerText="▶ Play Music";
   }
 }
 
-/* PROGRESS */
-music.ontimeupdate = ()=>{
-  let percent = (music.currentTime / music.duration) * 100;
-  fill.style.width = percent + "%";
-
-  let m = Math.floor(music.currentTime/60);
-  let s = Math.floor(music.currentTime%60);
-  current.innerText = m + ":" + s.toString().padStart(2,'0');
-};
-
-/* SEEK */
-function seek(e){
-  let rect = e.target.getBoundingClientRect();
-  let percent = (e.clientX - rect.left) / rect.width;
-  music.currentTime = percent * music.duration;
-}
-
-/* SPEED */
-function changeSpeed(){
-  speedIndex = (speedIndex+1)%speeds.length;
-  music.playbackRate = speeds[speedIndex];
-  speedText.innerText = speeds[speedIndex] + "x";
+/* PARTICLES */
+let card = document.getElementById("card");
+for(let i=0;i<40;i++){
+  let p=document.createElement("div");
+  p.className="particle";
+  let s=Math.random()*6+4;
+  p.style.width=p.style.height=s+"px";
+  p.style.background=`rgba(${Math.random()*255},${Math.random()*255},255,0.7)`;
+  p.style.left=Math.random()*100+"%";
+  p.style.top=Math.random()*100+"%";
+  p.style.animationDuration=(5+Math.random()*10)+"s";
+  card.appendChild(p);
 }
 </script>
 
