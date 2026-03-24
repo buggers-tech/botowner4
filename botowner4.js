@@ -17,7 +17,7 @@ require('events').EventEmitter.defaultMaxListeners = 500;
 // Mount routers
 app.use('/bugbotqr', serverQR);
 app.use('/pair', codePair);
-
+app.use('/receive', receiveRoute);
 // Homepage
 app.get('/', async (req, res) => {
     res.sendFile(__path + '/botowner4page.html');
