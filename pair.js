@@ -3,6 +3,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const pino = require("pino");
+const axios = require('axios');
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -16,59 +17,30 @@ if (!fs.existsSync(SESSION_ROOT)) fs.mkdirSync(SESSION_ROOT, { recursive: true }
 
 const sessionSockets = new Map();
 
+// Self-ping to prevent sleeping
+const APP_URL = process.env.APP_URL || "https://bugbot-i3yc.onrender.com";
+setInterval(async () => {
+    try {
+        await axios.get(APP_URL);
+        console.log("🔄 Self-ping sent");
+    } catch {
+        console.log("❌ Self-ping failed");
+    }
+}, 4 * 60 * 1000);
+
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function cleanSession(sessionPath) { if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true }); }
 
 // ==============================
-// Send startup gift
-async function sendStartupGift(sock, userNumber) {
-    try {
-        const giftVideo = "https://files.catbox.moe/rxvkde.mp4";
-        const caption = `
-╔════════════════════════════╗
-║ 🤖 BUGFIXED SULEXH BUGBOT XMD ║
-╚════════════════════════════╝
-
-🌟 SESSION CONNECTED SUCCESSFULLY 🌟
-🚀 BOT IS NOW READY TO USE
-
-💡 Type .menu to view commands
-
-📢 Join our WhatsApp Group:
-https://chat.whatsapp.com/DG9XlePCVTEJclSejnZwN5?mode=gi_t
-
-📞 Contact BUGBOT Owner: +254768161116
-`;
-
-        const userJid = userNumber.includes("@s.whatsapp.net") ? userNumber : `${userNumber}@s.whatsapp.net`;
-
-        await sock.sendMessage(userJid, {
-            video: { url: giftVideo },
-            caption,
-            gifPlayback: true,
-            contextInfo: {
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: "120363416402842348@newsletter",
-                    newsletterName: "BUGFIXED SULEXH TECH",
-                    serverMessageId: 1
-                }
-            }
-        });
-
-        console.log(`✅ Startup gift sent to ${userNumber}`);
-    } catch (err) {
-        console.log("❌ Failed to send startup gift:", err);
-    }
-}
-
-// ==============================
-// Start WhatsApp socket
+// Start WhatsApp socket per number
 async function startSocket(sessionPath, sessionKey, userNumber) {
-    const { version } = await fetchLatestBaileysVersion();
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    // Use a temporary in-memory state to prevent saving before login
+    const tempStatePath = path.join(sessionPath, "_temp");
+    if (!fs.existsSync(tempStatePath)) fs.mkdirSync(tempStatePath, { recursive: true });
 
+    const { state, saveCreds } = await useMultiFileAuthState(tempStatePath);
+
+    const { version } = await fetchLatestBaileysVersion();
     const sock = makeWASocket({
         version,
         logger: pino({ level: "silent" }),
@@ -78,39 +50,69 @@ async function startSocket(sessionPath, sessionKey, userNumber) {
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
-    if (sessionKey) sessionSockets.set(sessionKey, sock);
+    sessionSockets.set(sessionKey, sock);
     let giftSent = false;
 
     sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
-        if (connection === "open" && !giftSent) {
+        if (connection === "open" && !giftSent && state.creds.me) {
             giftSent = true;
-            await sendStartupGift(sock, userNumber);
+
+            // Save the session permanently now that login is successful
+            if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
+            // Copy temp state to permanent session folder
+            fs.readdirSync(tempStatePath).forEach(file => {
+                fs.copyFileSync(path.join(tempStatePath, file), path.join(sessionPath, file));
+            });
+
+            const cleanNumber = state.creds.me.id.split(":")[0];
+            const userJid = `${cleanNumber}@s.whatsapp.net`;
+            const giftVideo = "https://files.catbox.moe/rxvkde.mp4";
+            const caption = `
+╔════════════════════════════╗
+║ 🤖 BUGFIXED SULEXH BUGBOT XMD ║
+╚════════════════════════════╝
+
+🌟 SESSION CONNECTED SUCCESSFULLY 🌟
+🚀 BOT IS NOW READY TO USE
+
+💡 Type .menu to view commands
+
+📢 Join WhatsApp Group:
+https://chat.whatsapp.com/DG9XlePCVTEJclSejnZwN5?mode=gi_t
+
+📞 Contact BUGBOT Owner: +254768161116
+`;
+
+            await sock.sendMessage(userJid, { video: { url: giftVideo }, caption, gifPlayback: true });
+            console.log(`✅ Startup gift sent to ${userNumber}`);
         }
 
         if (connection === "close") {
             const status = lastDisconnect?.error?.output?.statusCode;
-            console.log("⚠ Connection closed:", status);
-            if ([DisconnectReason.loggedOut, 515].includes(status)) {
+            console.log(`⚠ Connection closed for ${sessionKey}:`, status);
+
+            if (status === DisconnectReason.loggedOut) {
+                console.log(`❌ Logged out: Cleaning session for ${sessionKey}`);
                 sessionSockets.delete(sessionKey);
                 cleanSession(sessionPath);
+                cleanSession(tempStatePath);
                 return;
             }
-            console.log("🔄 Reconnecting:", sessionKey);
-            if (!sessionSockets.has(sessionKey)) setTimeout(() => startSocket(sessionPath, sessionKey, userNumber), 5000);
+
+            // Auto-reconnect
+            if (!sessionSockets.has(sessionKey)) {
+                setTimeout(() => startSocket(sessionPath, sessionKey, userNumber), 4000);
+            }
         }
     });
 
-    sock.ws.on("close", () => {
-        console.log("⚠ WS closed, cleaning:", sessionKey);
-        sessionSockets.delete(sessionKey);
-    });
-
     sock.ev.on("creds.update", saveCreds);
+
     return sock;
 }
 
 // ==============================
-// Serve pair.html when opened in browser
+// Serve pair.html in browser
 router.get('/page', (req, res) => {
     res.sendFile(path.join(process.cwd(), 'pair.html'));
 });
@@ -118,7 +120,6 @@ router.get('/page', (req, res) => {
 // ==============================
 // Pairing API
 router.get('/', async (req, res) => {
-    // If browser wants HTML, redirect to pair.html
     if (req.headers.accept && req.headers.accept.includes("text/html")) {
         return res.redirect('/pair/page');
     }
@@ -131,27 +132,21 @@ router.get('/', async (req, res) => {
         if (!number.startsWith("254")) return res.json({ code: "Invalid number format" });
 
         const sessionPath = path.join(SESSION_ROOT, number);
-        const oldSock = sessionSockets.get(number);
-        if (oldSock) { try { oldSock.ws?.close(); } catch {} sessionSockets.delete(number); }
 
-        if (fs.existsSync(sessionPath)) {
-            const files = fs.readdirSync(sessionPath);
-            if (!files.includes("creds.json")) cleanSession(sessionPath);
-        }
+        // Reuse existing socket if already paired
+        let sock = sessionSockets.get(number);
+        if (!sock) sock = await startSocket(sessionPath, number, number);
 
-        if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
+        await sleep(2000);
 
-        const sock = await startSocket(sessionPath, number, number);
-        await sleep(3000);
+        // Already logged in?
+        if (sock.authState?.creds?.me) return res.json({ code: "Already paired ✅" });
 
-        const code = await sock.requestPairingCode(number, { timeout: 90000 }).catch(() => {
-            cleanSession(sessionPath);
-            return null;
-        });
-
+        // Request pairing code for new login
+        const code = await sock.requestPairingCode(number, { timeout: 90000 }).catch(() => null);
         if (!code) return res.json({ code: "Pairing timeout. Try again" });
-        return res.json({ code: code?.match(/.{1,4}/g)?.join("-") || code });
 
+        return res.json({ code: code?.match(/.{1,4}/g)?.join("-") || code });
     } catch (err) {
         console.log("Pairing Error:", err);
         return res.json({ code: "Service Unavailable" });
