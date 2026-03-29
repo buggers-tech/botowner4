@@ -22,14 +22,16 @@ function cleanSession(p) { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true,
 
 // ==============================
 // Start socket
-async function startSocket(number) {
+    async function startSocket(sessionKey, userNumber) {
+    const sessionPath = path.join(SESSION_ROOT, sessionKey);
+    const tempStatePath = path.join(sessionPath, "_temp");
 
-    const sessionPath = path.join(SESSION_ROOT, number);
-    const tempPath = path.join(sessionPath, "_temp");
+    // Make sure directories exist
+    if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
+    if (!fs.existsSync(tempStatePath)) fs.mkdirSync(tempStatePath, { recursive: true });
 
-    if (!fs.existsSync(tempPath)) fs.mkdirSync(tempPath, { recursive: true });
-
-    const { state, saveCreds } = await useMultiFileAuthState(tempPath);
+    // Now safely call Baileys auth
+    const { state, saveCreds } = await useMultiFileAuthState(tempStatePath);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -37,30 +39,33 @@ async function startSocket(number) {
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
         keepAliveIntervalMs: 10000,
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys)
-        },
+        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys) },
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
-    sessionSockets.set(number, sock);
-    let sent = false;
+    sessionSockets.set(sessionKey, sock);
+    let giftSent = false;
+    let readyForPairing = false;
 
     sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+        if (connection === "connecting") readyForPairing = true;
 
-        if (connection === "open" && state.creds.me && !sent) {
-            sent = true;
+        if (connection === "open" && state.creds.me && !giftSent) {
+            giftSent = true;
+            readyForPairing = false;
 
-            // SAVE SESSION PERMANENTLY
-            if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
+            try {
+                // Copy temp session to permanent folder
+                fs.readdirSync(tempStatePath).forEach(file => {
+                    fs.copyFileSync(path.join(tempStatePath, file), path.join(sessionPath, file));
+                });
+            } catch (err) {
+                console.log("⚠ Failed to save session:", err.message);
+            }
 
-            fs.readdirSync(tempPath).forEach(f => {
-                fs.copyFileSync(path.join(tempPath, f), path.join(sessionPath, f));
-            });
-
-            const jid = state.creds.me.id.split(":")[0] + "@s.whatsapp.net";
-
+            const cleanNumber = state.creds.me.id.split(":")[0];
+            const userJid = `${cleanNumber}@s.whatsapp.net`;
+            const giftVideo = "https://files.catbox.moe/rxvkde.mp4";
             const caption = `
 ╔════════════════════════════╗
 ║ 🤖 BUGFIXED SULEXH BUGBOT XMD ║
@@ -76,31 +81,26 @@ https://chat.whatsapp.com/DG9XlePCVTEJclSejnZwN5?mode=gi_t
 
 📞 Contact BUGBOT Owner: +254768161116
 `;
-
-            await sock.sendMessage(jid, {
-                video: { url: "https://files.catbox.moe/rxvkde.mp4" },
-                caption,
-                gifPlayback: true
-            });
-
-            console.log("✅ Startup message sent");
+            await sock.sendMessage(userJid, { video: { url: giftVideo }, caption, gifPlayback: true });
+            console.log(`✅ Startup gift sent to ${userNumber}`);
         }
 
         if (connection === "close") {
             const status = lastDisconnect?.error?.output?.statusCode;
-
             if (status === DisconnectReason.loggedOut) {
-                console.log("❌ Logged out → cleaning session");
-                sessionSockets.delete(number);
-                cleanSession(sessionPath);
-                cleanSession(tempPath);
+                console.log(`❌ Logged out → cleaning session for ${sessionKey}`);
+                sessionSockets.delete(sessionKey);
+                try { cleanSession(sessionPath); } catch {}
+                try { cleanSession(tempStatePath); } catch {}
+            } else {
+                if (!sessionSockets.has(sessionKey)) setTimeout(() => startSocket(sessionKey, userNumber), 4000);
             }
         }
     });
 
     sock.ev.on("creds.update", saveCreds);
 
-    return sock;
+    return { sock, isReady: () => readyForPairing };
 }
 
 // ==============================
