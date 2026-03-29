@@ -2,9 +2,9 @@
   "name": "BUGBOT",
   "version": "1.0.0",
   "description": "WhatsApp Bot",
-  "main": "botowner4.js",
+  "main": "index.js",
   "scripts": {
-  "start": "node botowner4.js",
+  "start": "node index.js",
    "start:render": "node botowner4.js",
     "cleanup": "node cleanup.js",
     "reset-session": "node reset-session.js",
