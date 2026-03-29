@@ -1,113 +1,131 @@
-const axios = require('axios');
-const fetch = require('node-fetch');
+const fs = require("fs");
+const axios = require("axios");
+const path = require("path");
 
 async function aiCommand(sock, chatId, message) {
-    try {
-        const text =
-            message.message?.conversation ||
-            message.message?.extendedTextMessage?.text ||
-            "";
+  try {
+    // ============================
+    // DETERMINE MESSAGE TYPE
+    // ============================
+    const text =
+      message.message?.conversation ||
+      message.message?.extendedTextMessage?.text ||
+      "";
 
-        if (!text) {
-            return await sock.sendMessage(
-                chatId,
-                {
-                    text: "Please provide a question after .gpt or .gemini\n\nExample: .gpt write a basic html code"
-                },
-                { quoted: message }
-            );
-        }
+    const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    const mediaMessage = quoted?.imageMessage || quoted?.videoMessage;
 
-        // Split command and query
-        const parts = text.trim().split(" ");
-        const command = parts[0].toLowerCase();
-        const query = parts.slice(1).join(" ").trim();
+    // ============================
+    // REPLY WITH IMAGE OR VIDEO
+    // ============================
+    if (mediaMessage) {
+      // Save media temporarily
+      const mediaType = mediaMessage.imageMessage ? "image" : "video";
+      const buffer = await sock.downloadMediaMessage(quoted, "buffer");
 
-        if (!query) {
-            return await sock.sendMessage(
-                chatId,
-                { text: "Please provide a question after .gpt or .gemini" },
-                { quoted: message }
-            );
-        }
+      const tempFile = path.join("./temp", `${Date.now()}.${mediaType === "image" ? "jpg" : "mp4"}`);
+      if (!fs.existsSync("./temp")) fs.mkdirSync("./temp");
 
-        // React while processing
-        await sock.sendMessage(chatId, {
-            react: { text: "🤖", key: message.key }
-        });
+      fs.writeFileSync(tempFile, buffer);
 
-        if (command === ".gpt") {
-            // GPT API
-            const response = await axios.get(
-                `https://zellapi.autos/ai/chatbot?text=${encodeURIComponent(query)}`
-            );
+      // Prompt from user or default
+      const prompt = text.replace(/^\.ai\s*/i, "") || "Describe this media or answer all questions in it.";
 
-            if (response.data?.status && response.data?.result) {
-                await sock.sendMessage(
-                    chatId,
-                    { text: response.data.result },
-                    { quoted: message }
-                );
-            } else {
-                throw new Error("Invalid GPT API response");
-            }
+      // Call AI media processor
+      const result = await processMediaWithAI(tempFile, mediaType, prompt);
 
-        } else if (command === ".gemini") {
-            // Gemini API fallback chain
-            const apis = [
-                `https://vapis.my.id/api/gemini?q=${encodeURIComponent(query)}`,
-                `https://api.siputzx.my.id/api/ai/gemini-pro?content=${encodeURIComponent(query)}`,
-                `https://api.ryzendesu.vip/api/ai/gemini?text=${encodeURIComponent(query)}`,
-                `https://zellapi.autos/ai/chatbot?text=${encodeURIComponent(query)}`,
-                `https://api.giftedtech.my.id/api/ai/geminiai?apikey=gifted&q=${encodeURIComponent(query)}`,
-                `https://api.giftedtech.my.id/api/ai/geminiaipro?apikey=gifted&q=${encodeURIComponent(query)}`
-            ];
+      await sock.sendMessage(chatId, { text: result }, { quoted: message });
 
-            for (const api of apis) {
-                try {
-                    const response = await fetch(api);
-                    const data = await response.json();
-
-                    const answer =
-                        data.message ||
-                        data.data ||
-                        data.answer ||
-                        data.result;
-
-                    if (answer) {
-                        await sock.sendMessage(
-                            chatId,
-                            { text: answer },
-                            { quoted: message }
-                        );
-                        return; // stop after first success
-                    }
-                } catch (e) {
-                    continue; // try next API
-                }
-            }
-
-            // All APIs failed
-            throw new Error("All Gemini APIs failed");
-        }
-
-    } catch (error) {
-        console.error("AI Command Error:", error);
-
-        await sock.sendMessage(
-            chatId,
-            {
-                text: "❌ An error occurred. Please try again later.",
-                contextInfo: {
-                    mentionedJid: [
-                        message.key?.participant || message.key?.remoteJid
-                    ],
-                    quotedMessage: message.message
-                }
-            },
-            { quoted: message }
-        );
+      // Cleanup temp file
+      fs.unlinkSync(tempFile);
+      return;
     }
+
+    // ============================
+    // NORMAL TEXT QUERY
+    // ============================
+    if (!text) {
+      return await sock.sendMessage(chatId, {
+        text: "⚠ Please provide a question after .ai\n\nExample: .ai Who is the father of computers?"
+      }, { quoted: message });
+    }
+
+    const prompt = text.replace(/^\.ai\s*/i, "").trim();
+
+    const response = await getAIResponse(prompt);
+
+    await sock.sendMessage(chatId, { text: response }, { quoted: message });
+
+  } catch (err) {
+    console.error("AI Command Error:", err);
+    try {
+      await sock.sendMessage(chatId, { text: "❌ An error occurred. Please try again later." }, { quoted: message });
+    } catch {}
+  }
+}
+
+// ============================
+// MEDIA PROCESSOR
+// ============================
+async function processMediaWithAI(filePath, mediaType, prompt) {
+  try {
+    if (mediaType === "image") {
+      // Call OpenAI Vision / GPT-4V
+      const formData = new FormData();
+      formData.append("file", fs.createReadStream(filePath));
+      formData.append("prompt", prompt);
+
+      const response = await axios.post(
+        "https://api.openai.com/v1/images/analyze",
+        formData,
+        { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, ...formData.getHeaders() }, timeout: 60000 }
+      );
+
+      return response.data?.result || "❌ Could not process image.";
+    }
+
+    if (mediaType === "video") {
+      const formData = new FormData();
+      formData.append("file", fs.createReadStream(filePath));
+      formData.append("prompt", prompt);
+
+      const response = await axios.post(
+        "https://api.openai.com/v1/video/analyze",
+        formData,
+        { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, ...formData.getHeaders() }, timeout: 120000 }
+      );
+
+      return response.data?.result || "❌ Could not process video.";
+    }
+
+    return "❌ Unsupported media type.";
+  } catch (err) {
+    console.error("Media AI Error:", err);
+    return "❌ Failed to process media.";
+  }
+}
+
+// ============================
+// NORMAL TEXT RESPONSE
+// ============================
+async function getAIResponse(prompt) {
+  try {
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 1500
+      },
+      { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, timeout: 30000 }
+    );
+
+    return response.data?.choices?.[0]?.message?.content || "❌ Could not generate response.";
+  } catch (err) {
+    console.error("GPT Error:", err);
+    return "❌ Failed to process request.";
+  }
 }
 
 module.exports = aiCommand;
