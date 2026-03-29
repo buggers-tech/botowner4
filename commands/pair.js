@@ -1,7 +1,25 @@
 const axios = require("axios");
 
+const OWNER_NUMBER = "254768161116";
+
+function isStrictOwner(sender) {
+    return sender
+        .split(':')[0]
+        .split('@')[0] === OWNER_NUMBER;
+}
+
 async function pairCommand(sock, chatId, message) {
     try {
+
+        const sender = message.key?.participant || message.key?.remoteJid;
+
+        // ✅ OWNER ONLY CHECK
+        if (!isStrictOwner(sender)) {
+            await sock.sendMessage(chatId, {
+                text: "❌ This command is only for BOT OWNER"
+            });
+            return;
+        }
 
         const rawText =
             message.message?.conversation ||
