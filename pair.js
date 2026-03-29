@@ -79,65 +79,112 @@ sessionSockets.set(sessionKey, sock);
 }
 
 /*
+MESSAGE HANDLER
+*/
+sock.ev.on("messages.upsert", async (chatUpdate) => {
+
+try {
+
+if (!chatUpdate?.messages?.length) return;
+if (chatUpdate.type !== "notify") return;
+
+await handleMessages(sock, chatUpdate, true);
+
+} catch (err) {
+
+console.log("Runtime handler error:", err);
+
+}
+
+});
+
+/*
+SAVE CREDS
+*/
+sock.ev.on("creds.update", saveCreds);
+
+/*
 CONNECTION HANDLER
 */
 sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect } = update;
-    try {
-        if (connection === "open" && state?.creds?.me?.id) {
-            const cleanNumber = state.creds.me.id.split(":")[0];
-            const userJid = `${cleanNumber}@s.whatsapp.net`;
 
-            // Auto-playing gift
-            const giftGif = "https://files.catbox.moe/rxvkde.mp4";
+const { connection, lastDisconnect } = update;
 
-            // Caption with group and owner
-            const caption = `
+try {
+
+if (connection === "open") {
+
+await new Promise(r => setTimeout(r, 2500));
+
+if (!state?.creds?.me?.id) return;
+
+const cleanNumber = state.creds.me.id.split(":")[0];
+const userJid = cleanNumber + "@s.whatsapp.net";
+
+const giftVideo = "https://files.catbox.moe/rxvkde.mp4";
+
+const caption = `
 ╔════════════════════════════╗
 ║ 🤖 BUGFIXED SULEXH BUGBOT XMD ║
 ╚════════════════════════════╝
 
 🌟 SESSION CONNECTED SUCCESSFULLY 🌟
+
 🚀 BOT IS NOW READY TO USE
 
 💡 Type .menu to view commands
-
-📢 Join WhatsApp Group:
-https://chat.whatsapp.com/DG9XlePCVTEJclSejnZwN5?mode=gi_t
-
-📞 Contact BUGBOT Owner: +254768161116
 `;
 
-            await sock.sendMessage(userJid, {
-                video: { url: giftGif },
-                caption,
-                gifPlayback: true,
-                contextInfo: { forwardingScore: 999, isForwarded: true }
-            });
-            console.log("✅ Startup gift sent");
+await sock.sendMessage(userJid, {
 
-            // Save session only after successful connection
-            saveCreds();
-            console.log(`💾 Session saved for ${cleanNumber}`);
-        }
+video: { url: giftVideo },
+caption: caption,
+giftPlayback: true,
+contextInfo: {
+forwardingScore: 999,
+isForwarded: true,
+forwardedNewsletterMessageInfo: {
+newsletterJid: "120363416402842348@newsletter",
+newsletterName: "BUGFIXED SULEXH TECH",
+serverMessageId: 1
+}
+}
 
-        /* AUTO RECONNECT */
-        if (connection === "close") {
-            const status = lastDisconnect?.error?.output?.statusCode;
-            console.log("⚠ Connection closed");
+});
 
-            if (status !== DisconnectReason.loggedOut) {
-                setTimeout(() => startSocket(sessionPath, sessionKey), 4000);
-            } else {
-                console.log("❌ Logged out: session cleared");
-                sessionSockets.delete(sessionKey);
-                fs.rmSync(sessionPath, { recursive: true, force: true });
-            }
-        }
+console.log("✅ Startup message sent");
 
-    } catch (err) {
-        console.log("Connection handler error:", err);
-    }
+}
+
+/*
+AUTO RECONNECT
+*/
+if (connection === "close") {
+
+const status = lastDisconnect?.error?.output?.statusCode;
+
+console.log("⚠ Connection closed");
+
+if (status !== DisconnectReason.loggedOut) {
+
+setTimeout(() => {
+startSocket(sessionPath, sessionKey);
+}, 4000);
+
+} else {
+
+console.log("❌ Logged out");
+
+}
+
+}
+
+} catch (err) {
+
+console.log("Connection handler error:", err);
+
+}
+
 });
 
 return sock;
