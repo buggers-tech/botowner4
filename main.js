@@ -1052,7 +1052,16 @@ case userMessage === '.v': {
             case userMessage.startsWith('.tiktok') || userMessage.startsWith('.tt'):
                 await tiktokCommand(sock, chatId, message);
                 break;
+            case userMessage.startsWith('.gptreset') || userMessage.startsWith('.gemini'):
+                await aiCommand(sock, chatId, message);
+                break;
             case userMessage.startsWith('.gpt') || userMessage.startsWith('.gemini'):
+                await aiCommand(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.gemini') || userMessage.startsWith('.gemini'):
+                await aiCommand(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.ai') || userMessage.startsWith('.gemini'):
                 await aiCommand(sock, chatId, message);
                 break;
             case userMessage.startsWith('.translate') || userMessage.startsWith('.trt'):
