@@ -3,7 +3,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const pino = require("pino");
-const axios = require('axios');
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -17,24 +17,19 @@ if (!fs.existsSync(SESSION_ROOT)) fs.mkdirSync(SESSION_ROOT, { recursive: true }
 
 const sessionSockets = new Map();
 
-// Self-ping to prevent sleeping
-const APP_URL = process.env.APP_URL || "https://bugbot-i3yc.onrender.com";
-setInterval(async () => {
-    try { await axios.get(APP_URL); console.log("🔄 Self-ping sent"); } 
-    catch { console.log("❌ Self-ping failed"); }
-}, 4 * 60 * 1000);
-
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function cleanSession(sessionPath) { if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true }); }
+function cleanSession(p) { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); }
 
 // ==============================
-// Start WhatsApp socket per number
-async function startSocket(sessionKey, userNumber) {
-    const sessionPath = path.join(SESSION_ROOT, sessionKey);
-    const tempStatePath = path.join(sessionPath, "_temp");
-    if (!fs.existsSync(tempStatePath)) fs.mkdirSync(tempStatePath, { recursive: true });
+// Start socket
+async function startSocket(number) {
 
-    const { state, saveCreds } = await useMultiFileAuthState(tempStatePath);
+    const sessionPath = path.join(SESSION_ROOT, number);
+    const tempPath = path.join(sessionPath, "_temp");
+
+    if (!fs.existsSync(tempPath)) fs.mkdirSync(tempPath, { recursive: true });
+
+    const { state, saveCreds } = await useMultiFileAuthState(tempPath);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -42,32 +37,30 @@ async function startSocket(sessionKey, userNumber) {
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
         keepAliveIntervalMs: 10000,
-        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys) },
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys)
+        },
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
-    sessionSockets.set(sessionKey, sock);
-    let giftSent = false;
-
-    // Track pairing-ready state
-    let readyForPairing = false;
+    sessionSockets.set(number, sock);
+    let sent = false;
 
     sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
-        if (connection === "connecting") readyForPairing = true;
 
-        // Successful login → save session permanently
-        if (connection === "open" && state.creds.me && !giftSent) {
-            giftSent = true;
-            readyForPairing = false;
+        if (connection === "open" && state.creds.me && !sent) {
+            sent = true;
 
+            // SAVE SESSION PERMANENTLY
             if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
-            fs.readdirSync(tempStatePath).forEach(file => {
-                fs.copyFileSync(path.join(tempStatePath, file), path.join(sessionPath, file));
+
+            fs.readdirSync(tempPath).forEach(f => {
+                fs.copyFileSync(path.join(tempPath, f), path.join(sessionPath, f));
             });
 
-            const cleanNumber = state.creds.me.id.split(":")[0];
-            const userJid = `${cleanNumber}@s.whatsapp.net`;
-            const giftVideo = "https://files.catbox.moe/rxvkde.mp4";
+            const jid = state.creds.me.id.split(":")[0] + "@s.whatsapp.net";
+
             const caption = `
 ╔════════════════════════════╗
 ║ 🤖 BUGFIXED SULEXH BUGBOT XMD ║
@@ -84,66 +77,70 @@ https://chat.whatsapp.com/DG9XlePCVTEJclSejnZwN5?mode=gi_t
 📞 Contact BUGBOT Owner: +254768161116
 `;
 
-            await sock.sendMessage(userJid, { video: { url: giftVideo }, caption, gifPlayback: true });
-            console.log(`✅ Startup gift sent to ${userNumber}`);
+            await sock.sendMessage(jid, {
+                video: { url: "https://files.catbox.moe/rxvkde.mp4" },
+                caption,
+                gifPlayback: true
+            });
+
+            console.log("✅ Startup message sent");
         }
 
-        // Handle disconnect
         if (connection === "close") {
             const status = lastDisconnect?.error?.output?.statusCode;
+
             if (status === DisconnectReason.loggedOut) {
-                console.log(`❌ Logged out: Cleaning session for ${sessionKey}`);
-                sessionSockets.delete(sessionKey);
+                console.log("❌ Logged out → cleaning session");
+                sessionSockets.delete(number);
                 cleanSession(sessionPath);
-                cleanSession(tempStatePath);
-            } else {
-                if (!sessionSockets.has(sessionKey)) setTimeout(() => startSocket(sessionKey, userNumber), 4000);
+                cleanSession(tempPath);
             }
         }
     });
 
     sock.ev.on("creds.update", saveCreds);
 
-    return { sock, isReady: () => readyForPairing };
+    return sock;
 }
 
 // ==============================
-// Serve pair.html
-router.get('/page', (req, res) => res.sendFile(path.join(process.cwd(), 'pair.html')));
+// OPEN HTML
+router.get('/', (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'pair.html'));
+});
 
 // ==============================
-// Pairing API
-router.get('/', async (req, res) => {
-    try {
-        if (req.headers.accept && req.headers.accept.includes("text/html")) return res.redirect('/pair/page');
+// PAIR CODE API
+router.get('/code', async (req, res) => {
 
+    try {
         let number = req.query.number;
+
         if (!number) return res.json({ code: "Number Required" });
 
         number = number.replace(/[^0-9]/g, '');
-        if (!number.startsWith("254")) return res.json({ code: "Invalid number format" });
 
-        let sockData = sessionSockets.get(number);
-        if (!sockData) sockData = await startSocket(number, number);
-
-        const { sock, isReady } = sockData;
-
-        // Wait until socket is ready to request pairing code
-        let timeout = 0;
-        while (!isReady() && timeout < 10000) {
-            await sleep(200);
-            timeout += 200;
+        if (!number.startsWith("254")) {
+            return res.json({ code: "Use 254XXXXXXXXX format" });
         }
 
-        if (!isReady()) return res.json({ code: "Pairing failed. Try again." });
+        // 🔥 ALWAYS NEW SOCKET FOR PAIRING
+        const sock = await startSocket(number);
 
-        const code = await sock.requestPairingCode(number, { timeout: 90000 }).catch(() => null);
-        if (!code) return res.json({ code: "Pairing failed or timeout. Try again." });
+        // 🔥 CRITICAL WAIT (handshake)
+        await sleep(2500);
 
-        return res.json({ code: code?.match(/.{1,4}/g)?.join("-") || code });
+        const code = await sock.requestPairingCode(number).catch(() => null);
+
+        if (!code) return res.json({ code: "Try again" });
+
+        return res.json({
+            code: code.match(/.{1,4}/g).join("-")
+        });
+
     } catch (err) {
-        console.log("Pairing Error:", err);
-        return res.json({ code: "Service Unavailable" });
+        console.log("PAIR ERROR:", err);
+        return res.json({ code: "Server Error" });
     }
 });
 
