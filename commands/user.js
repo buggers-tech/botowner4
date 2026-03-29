@@ -1,22 +1,25 @@
 const fs = require("fs");
 
+const OWNER_NUMBER = "254768161116";
+
+function isStrictOwner(sender) {
+    return sender
+        ?.split(':')[0]
+        ?.split('@')[0] === OWNER_NUMBER;
+}
+
 async function userCommand(sock, chatId, message) {
 
     try {
 
         /* =============================
-           OWNER AUTH (FIXED)
+           OWNER AUTH (FIXED PROPERLY)
         ============================= */
-
-        const OWNER_NUMBER = "254768161116";
 
         const sender =
             message.key.participant || message.key.remoteJid;
 
-        const senderNumber =
-            sender?.split("@")[0] || "";
-
-        if (senderNumber !== OWNER_NUMBER) {
+        if (!isStrictOwner(sender)) {
             await sock.sendMessage(chatId, {
                 text: "❌ This command is owner only."
             });
