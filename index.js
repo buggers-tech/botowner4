@@ -54,11 +54,8 @@ setInterval(() => {
 // Memory monitoring - Restart if RAM gets too high
 setInterval(() => {
     const used = process.memoryUsage().rss / 1024 / 1024
-    if (used > 400) {
-        console.log('⚠️ RAM too high (>400MB), restarting bot...')
-        process.exit(1) // Panel will auto-restart
-    }
-}, 30_000) // check every 30 seconds
+    console.log(`📊 RAM Usage: ${used.toFixed(2)} MB`)
+}, 60000)
 
 let phoneNumber = "254768161116"
 let owner = JSON.parse(fs.readFileSync('./data/owner.json'))
@@ -287,20 +284,22 @@ async function startXeonBotInc() {
             console.log(chalk.red(`Connection closed due to ${lastDisconnect?.error}, reconnecting ${shouldReconnect}`))
             
             if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
-                try {
-                    rmSync('./session', { recursive: true, force: true })
+    console.log('❌ Logged out — please re-pair manually');
+    return; // 🚫 DO NOT DELETE SESSION
+            }
                     console.log(chalk.yellow('Session folder deleted. Please re-authenticate.'))
                 } catch (error) {
                     console.error('Error deleting session:', error)
                 }
                 console.log(chalk.red('Session logged out. Please re-authenticate.'))
             }
+          if (shouldReconnect) {
+    console.log('🔄 Reconnecting in 5 seconds...');
+    setTimeout(() => {
+        startXeonBotInc();
+    }, 5000);
+          }  
             
-            if (shouldReconnect) {
-                console.log(chalk.yellow('Reconnecting...'))
-                await delay(5000)
-                startXeonBotInc()
-            }
         }
     })
 
