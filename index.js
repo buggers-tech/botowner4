@@ -286,13 +286,6 @@ async function startXeonBotInc() {
             if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
     console.log('❌ Logged out — please re-pair manually');
     return; // 🚫 DO NOT DELETE SESSION
-        
-    console.log(chalk.yellow('Session folder deleted. Please re-authenticate.'))
-                } catch (error) {
-                    console.error('Error deleting session:', error)
-                }
-                console.log(chalk.red('Session logged out. Please re-authenticate.'))
-            }
           if (shouldReconnect) {
     console.log('🔄 Reconnecting in 5 seconds...');
     setTimeout(() => {
