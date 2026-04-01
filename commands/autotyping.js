@@ -11,7 +11,7 @@ function getDataFile(sock) {
     if (!sock?.user?.id) return null;
 
     const botNumber = sock.user.id.split(":")[0];
-    const dir = path.join(__dirname, '../data/autotyping');
+    const dir = path.join(__dirname, '../data/autotyping/<number>.json');
 
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
