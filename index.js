@@ -276,25 +276,25 @@ async function startXeonBotInc() {
             console.log(chalk.green(`${global.themeemoji || '•'} 🤖 Bot Connected Successfully! ✅`))
             console.log(chalk.blue(`Bot Version: ${settings.version}`))
         }
-        
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
-            const statusCode = lastDisconnect?.error?.output?.statusCode
-            
-            console.log(chalk.red(`Connection closed due to ${lastDisconnect?.error}, reconnecting ${shouldReconnect}`))
-            
-            if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
-    console.log('❌ Logged out — please re-pair manually');
-    return; // 🚫 DO NOT DELETE SESSION
-          if (shouldReconnect) {
-    console.log('🔄 Reconnecting in 5 seconds...');
-    setTimeout(() => {
-        startXeonBotInc();
-    }, 5000);
-          }  
-            
-        }
-    })
+    const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+    const statusCode = lastDisconnect?.error?.output?.statusCode;
+
+    console.log(chalk.red(`Connection closed: ${statusCode}`));
+
+    if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
+        console.log('❌ Logged out — please re-pair manually');
+        return; // stop here completely
+    }
+
+    if (shouldReconnect) {
+        console.log('🔄 Reconnecting in 5 seconds...');
+        setTimeout(() => {
+            startXeonBotInc();
+        }, 5000);
+      }
+    }
+        
 
     // Track recently-notified callers to avoid spamming messages
     const antiCallNotified = new Set();
