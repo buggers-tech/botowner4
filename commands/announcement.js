@@ -51,7 +51,7 @@ async function announcementCommand(sock, chatId, message) {
                 // If keyword is provided, only send to matching groups
                 if (keyword && !group.subject.toLowerCase().includes(keyword)) continue;
 
-                const msg = `📢 *ANNOUNCEMENT*\n\n${announcementText}\n\n*SENT BY BUGFIXED SULEXH*`;
+                const msg = `📢 *ANNOUNCEMENT*\n\n${announcementText}\n\n *SENT BY BUGFIXED SULEXH* `;
                 await sock.sendMessage(group.id, { text: msg });
                 groupCount++;
                 await new Promise(r => setTimeout(r, 500)); // prevent rate-limit
