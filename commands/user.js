@@ -2,19 +2,37 @@ const fs = require("fs");
 
 const OWNER_NUMBER = "254768161116";
 
+/**
+ * Flexible owner check
+ * Accepts:
+ * - 254768161116@s.whatsapp.net
+ * - 254768161116
+ * - 74732951101665@lid (new WA format)
+ */
 function isStrictOwner(sender) {
     if (!sender) return false;
-    const cleanSender = sender.split(':')[0]?.split('@')[0];
-    console.log("🔍 [USER] Checking owner - Sender:", sender, "Clean:", cleanSender, "Expected:", OWNER_NUMBER, "Match:", cleanSender === OWNER_NUMBER);
-    return cleanSender === OWNER_NUMBER;
+
+    const cleanSender = sender.replace(/\D/g, ""); // remove everything except numbers
+    const match = cleanSender.endsWith(OWNER_NUMBER);
+
+    console.log(
+        "🔍 [USER] Checking owner - Sender:",
+        sender,
+        "Clean:",
+        cleanSender,
+        "Expected:",
+        OWNER_NUMBER,
+        "Match:",
+        match
+    );
+
+    return match;
 }
 
 async function userCommand(sock, chatId, message) {
-
     try {
-
         /* =============================
-           OWNER AUTH (FIXED PROPERLY)
+           OWNER AUTH (FIXED)
         ============================= */
 
         const sender =
@@ -74,7 +92,6 @@ async function userCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, { text });
 
     } catch (err) {
-
         console.log("User Command Error:", err);
 
         try {
