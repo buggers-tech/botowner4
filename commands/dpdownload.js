@@ -1,33 +1,65 @@
-const { MessageType } = require('@adiwajshing/baileys');
+const fs = require('fs');
+const path = require('path');
 
-module.exports = {
-    name: 'dpdownload',
-    description: 'Download a user\'s profile picture given their phone number.',
-    ownerOnly: true,
-    async execute(message, args) {
-        if (!args[0]) {
-            return message.reply('Please provide a phone number.');
+/*
+========================================
+DPDOWNLOAD COMMAND - Download Profile Picture
+========================================
+*/
+
+async function dpdownloadCommand(sock, chatId, message) {
+    try {
+        const rawText =
+            message.message?.conversation ||
+            message.message?.extendedTextMessage?.text ||
+            "";
+
+        const phoneNumber = rawText.replace(/\.dpdownload\s*/i, "").trim();
+
+        if (!phoneNumber) {
+            await sock.sendMessage(chatId, {
+                text: "⚠ Usage:\n.dpdownload 254xxxxxxxxx"
+            });
+            return;
         }
 
-        const phoneNumber = args[0];
-        // Process to obtain user profile picture from phone number
+        // Format the JID
+        const jid = phoneNumber + "@s.whatsapp.net";
+
+        await sock.sendMessage(chatId, {
+            text: "⏳ Downloading profile picture..."
+        });
+
         try {
-            const user = await fetchUserProfile(phoneNumber);
-            const profilePicUrl = user.profilePicture;
+            // Get profile picture
+            const pp = await sock.profilePictureUrl(jid, 'image');
 
-            // Send profile picture
-            await message.client.sendMessage(message.from, { url: profilePicUrl }, MessageType.image);
-        } catch (error) {
-            console.error(error);
-            return message.reply('Could not download profile picture.');
+            if (pp) {
+                await sock.sendMessage(chatId, {
+                    image: { url: pp },
+                    caption: `📸 *Profile Picture*\n\n📞 Number: ${phoneNumber}\n⏰ Downloaded at: ${new Date().toLocaleString()}`
+                });
+            } else {
+                await sock.sendMessage(chatId, {
+                    text: "⚠ Could not download profile picture. User may not have one set."
+                });
+            }
+
+        } catch (err) {
+            console.error("Profile Picture Download Error:", err);
+            await sock.sendMessage(chatId, {
+                text: "⚠ Error downloading profile picture. Make sure the number is correct and has WhatsApp."
+            });
         }
-    }
-};
 
-async function fetchUserProfile(phoneNumber) {
-    // Implement logic to fetch user profile using phone number
-    // Replace with actual implementation  
-    return {
-        profilePicture: 'url_to_profile_picture' // Placeholder
-    };
+    } catch (err) {
+        console.log("DPDownload Command Error:", err);
+        try {
+            await sock.sendMessage(chatId, {
+                text: "⚠ DP Download error."
+            });
+        } catch {}
+    }
 }
+
+module.exports = dpdownloadCommand;
