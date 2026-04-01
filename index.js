@@ -1,4 +1,3 @@
-
 require('./settings')
 const { Boom } = require('@hapi/boom')
 const fs = require('fs')
@@ -360,7 +359,7 @@ async function startXeonBotInc() {
         startXeonBotInc()
     }
   }
-});
+}
 
 // Start the bot with error handling
 startXeonBotInc().catch(error => {
