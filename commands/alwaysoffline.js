@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 
-const CONFIG_FILE = './data/offline_config.json';
+const CONFIG_FILE = './data/alwaysoffline/<number>.json';
 
 function loadConfig() {
     try {
