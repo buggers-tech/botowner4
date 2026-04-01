@@ -60,6 +60,11 @@ const sulexhCommand = require('./commands/sulexh');
 const sulexhcalCommand = require('./commands/sulexhcal');
 const depairCommand = require('./commands/depair');
 const userCommand = require('./commands/user');
+const announcementCommand = require('./commands/announcement');
+const hadithCommand = require('./commands/hadith');
+const { antieditCommand } = require('./commands/antiedit');
+const { autolikestatusCommand } = require('./commands/autolikestatus');
+const dpdownloadCommand = require('./commands/dpdownload');
 const unmuteCommand = require('./commands/unmute');
 const stickerCommand = require('./commands/sticker');
 const isAdmin = require('./lib/isAdmin');
@@ -1049,7 +1054,32 @@ case userMessage === '.v': {
     await quranCommand(sock, chatId, message);
     commandExecuted = true;
     break;
-            case userMessage.startsWith('.tiktok') || userMessage.startsWith('.tt'):
+       case userMessage.startsWith('.announcement'):
+    await announcementCommand(sock, chatId, message);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('.hadith'):
+    await hadithCommand(sock, chatId, message);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('.antiedit'):
+    await antieditCommand(sock, chatId, message);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('.autolikestatus'):
+    await autolikestatusCommand(sock, chatId, message);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('.dpdownload'):
+    await dpdownloadCommand(sock, chatId, message);
+    commandExecuted = true;
+    break;     
+          
+          case userMessage.startsWith('.tiktok') || userMessage.startsWith('.tt'):
                 await tiktokCommand(sock, chatId, message);
                 break;
             case userMessage.startsWith('.gptreset') || userMessage.startsWith('.gemini'):
