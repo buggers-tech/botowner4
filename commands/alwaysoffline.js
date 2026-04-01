@@ -1,94 +1,58 @@
-/**
- * BUGFIXED-SULEXH-XMD - AlwaysOffline Command (REALISTIC)
- */
+// 🔴 ALWAYS OFFLINE COMMAND - Show only 1 tick
 
 const fs = require('fs');
-const path = require('path');
-const isOwnerOrSudo = require('../lib/isOwner');
 
-const configPath = path.join(__dirname, '..', 'data', 'alwaysoffline.json');
+const CONFIG_FILE = './data/offline_config.json';
 
-function initConfig() {
-    if (!fs.existsSync(configPath)) {
-        fs.mkdirSync(path.dirname(configPath), { recursive: true });
-        fs.writeFileSync(
-            configPath,
-            JSON.stringify({ enabled: false }, null, 2)
-        );
-    }
-    return JSON.parse(fs.readFileSync(configPath));
+function loadConfig() {
+    try {
+        if (fs.existsSync(CONFIG_FILE)) {
+            return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+        }
+    } catch {}
+    return { alwaysOffline: false };
 }
 
 function saveConfig(config) {
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
-// COMMAND
-async function alwaysofflineCommand(sock, chatId, message) {
+async function alwaysOfflineCommand(sock, chatId, message) {
     try {
-        const senderId = message.key.participant || message.key.remoteJid;
-        const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
+        const rawText = message.message?.conversation || "";
+        const [cmd, action] = rawText.trim().split(/\s+/);
 
-        if (!message.key.fromMe && !isOwner) {
-            await sock.sendMessage(chatId, { text: '❌ Owner only command!' });
-            return;
-        }
-
-        const text =
-            message.message?.conversation ||
-            message.message?.extendedTextMessage?.text ||
-            '';
-
-        const args = text.trim().split(/\s+/).slice(1);
-        const config = initConfig();
-
-        if (args[0] === 'on' || args[0] === 'enable') {
-            config.enabled = true;
-        } else if (args[0] === 'off' || args[0] === 'disable') {
-            config.enabled = false;
+        if (action === 'on') {
+            let config = loadConfig();
+            config.alwaysOffline = true;
+            saveConfig(config);
+            
+            // Set presence to unavailable
+            await sock.sendPresenceUpdate('unavailable', chatId);
+            
+            await sock.sendMessage(chatId, { 
+                text: "✅ Always Offline activated!\n🔴 You will only show 1 tick (sent status only)" 
+            });
+        } else if (action === 'off') {
+            let config = loadConfig();
+            config.alwaysOffline = false;
+            saveConfig(config);
+            
+            // Set presence to available
+            await sock.sendPresenceUpdate('available', chatId);
+            
+            await sock.sendMessage(chatId, { text: "❌ Always Offline deactivated." });
         } else {
-            config.enabled = !config.enabled;
+            const config = loadConfig();
+            const status = config.alwaysOffline ? "✅ ON (Only 1 tick)" : "❌ OFF";
+            await sock.sendMessage(chatId, { text: `Always Offline: ${status}` });
         }
-
-        saveConfig(config);
-
-        await sock.sendMessage(chatId, {
-            text: `✅ AlwaysOffline ${config.enabled ? 'ENABLED' : 'DISABLED'}`
-        });
-    } catch (e) {
-        console.error('AlwaysOffline command error:', e);
+    } catch (err) {
+        console.error("Always Offline Error:", err);
+        try {
+            await sock.sendMessage(chatId, { text: "⚠ Always Offline error." });
+        } catch {}
     }
 }
 
-// CHECK
-function isAlwaysOfflineEnabled() {
-    try {
-        return initConfig().enabled;
-    } catch {
-        return false;
-    }
-}
-
-// HANDLER (CORE LOGIC)
-async function handleAlwaysOffline(sock, message) {
-    if (!isAlwaysOfflineEnabled()) return false;
-
-    const jid = message.key.remoteJid;
-    const isGroup = jid.endsWith('@g.us');
-
-    // Force offline presence
-    try {
-        await sock.sendPresenceUpdate('unavailable', jid);
-    } catch {}
-
-    // ❌ Do NOT send read receipts in private chats
-    if (!isGroup) return true;
-
-    return false;
-}
-
-module.exports = {
-    alwaysofflineCommand,
-    isAlwaysOfflineEnabled,
-    handleAlwaysOffline
-};
+module.exports = alwaysOfflineCommand;
