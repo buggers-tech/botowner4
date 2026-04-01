@@ -4,9 +4,10 @@ const path = require("path");
 const OWNER_NUMBER = "254768161116";
 
 function isStrictOwner(sender) {
-    return sender
-        ?.split(':')[0]
-        ?.split('@')[0] === OWNER_NUMBER;
+    if (!sender) return false;
+    const cleanSender = sender.split(':')[0]?.split('@')[0];
+    console.log("🔍 [DEPAIR] Checking owner - Sender:", sender, "Clean:", cleanSender, "Expected:", OWNER_NUMBER, "Match:", cleanSender === OWNER_NUMBER);
+    return cleanSender === OWNER_NUMBER;
 }
 
 async function depairCommand(sock, chatId, message) {
