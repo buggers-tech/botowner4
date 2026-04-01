@@ -359,8 +359,8 @@ async function startXeonBotInc() {
         await delay(5000)
         startXeonBotInc()
     }
-}
-
+  }
+});
 
 // Start the bot with error handling
 startXeonBotInc().catch(error => {
