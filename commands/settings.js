@@ -24,14 +24,16 @@ async function settingsCommand(sock, chatId, message) {
         const isGroup = chatId.endsWith('@g.us');
         const dataDir = './data';
 
-        const mode = readJsonSafe(`${dataDir}/messageCount.json`, { isPublic: true });
-        const autoStatus = readJsonSafe(`${dataDir}/autoStatus.json`, { enabled: false });
-        const autoread = readJsonSafe(`${dataDir}/autoread.json`, { enabled: false });
-        const autotyping = readJsonSafe(`${dataDir}/autotyping.json`, { enabled: false });
-        const autorecording = readJsonSafe(`${dataDir}/autorecording.json`, { enabled: false });
-        const alwaysoffline = readJsonSafe(`${dataDir}/alwaysoffline.json`, { enabled: false });
-        const pmblocker = readJsonSafe(`${dataDir}/pmblocker.json`, { enabled: false });
-        const anticall = readJsonSafe(`${dataDir}/anticall.json`, { enabled: false });
+        const mode = readJsonSafe(`${dataDir}/messageCount/<number>.json`, { isPublic: true });
+        const autoStatus = readJsonSafe(`${dataDir}/autostatus/<number>.json`, { enabled: false });
+        const autoread = readJsonSafe(`${dataDir}/autoread/<number>.json`, { enabled: false });
+        const autotyping = readJsonSafe(`${dataDir}/autotyping/<number>.json`, { enabled: false });
+        const autorecording = readJsonSafe(`${dataDir}/autorecording/<number>.json`, { enabled: false });
+        const alwaysoffline = readJsonSafe(`${dataDir}/alwaysoffline/<number>.json`, { enabled: false });
+        const pmblocker = readJsonSafe(`${dataDir}/pmblocker/<number>.json`, { enabled: false });
+        const anticall = readJsonSafe(`${dataDir}/anticall/<number>.json`, { enabled: false });
+        const autolikestatus = readJsonSafe(`${dataDir}/autolikestatus/<number>.json`, { enabled: false });
+        const antiedit = readJsonSafe(`${dataDir}/antiedit/<number>.json`, { enabled: false });
         const userGroupData = readJsonSafe(`${dataDir}/userGroupData.json`, {
             antilink: {}, antibadword: {}, welcome: {}, goodbye: {}, chatbot: {}, antitag: {}
         });
@@ -58,6 +60,8 @@ async function settingsCommand(sock, chatId, message) {
         lines.push(`• Auto Reaction: ${autoReaction ? 'ON' : 'OFF'}`);
         lines.push(`• Autorecording: ${autorecording.enabled ? 'ON' : 'OFF'}`);
         lines.push(`• Awaysoffline: ${alwaysoffline.enabled ? 'ON' : 'OFF'}`);
+        lines.push(`• Autolikestatus: ${autolikestatus.enabled ? 'ON' : 'OFF'}`);
+        lines.push(`• Antiedit: ${antiedit.enabled ? 'ON' : 'OFF'}`);
         if (groupId) {
             lines.push('');
             lines.push(`Group: ${groupId}`);
