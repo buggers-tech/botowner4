@@ -27,7 +27,9 @@ function loadConfig(sock) {
         if (fs.existsSync(CONFIG_FILE)) {
             return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
         }
-    } catch (err) {}
+    } catch (err) {
+        console.error("Load AlwaysOffline config error:", err);
+    }
     return { alwaysOffline: false };
 }
 
@@ -96,21 +98,50 @@ async function alwaysOfflineCommand(sock, chatId, message) {
 
 /**
  * Intercept messages to prevent double-tick if Always Offline is active
+ * Still allows the bot to process/read messages internally
  */
 async function handleAlwaysOffline(sock, message) {
     try {
         if (!isAlwaysOfflineEnabled(sock)) return;
+
+        // Don't modify your own messages
         if (message.key?.fromMe) return;
 
-        // Prevent sending read receipt / presence update
-        if (sock.sendReadReceipt) sock.sendReadReceipt = async () => {};
+        // Intercept and suppress read receipts
+        if (sock.sendReadReceipt) {
+            sock.sendReadReceipt = async () => {}; // override default behavior
+        }
+
+        // Intercept presence updates to show only 1 tick
+        if (sock.sendPresenceUpdate) {
+            sock.sendPresenceUpdate = async () => {}; // prevents automatic online presence updates
+        }
+
+        // Messages can still be read internally
+        return message;
+
     } catch (err) {
         console.error("AlwaysOffline handler error:", err);
+    }
+}
+
+/**
+ * Apply Always Offline on bot startup
+ */
+async function restoreAlwaysOffline(sock) {
+    try {
+        if (isAlwaysOfflineEnabled(sock)) {
+            await sock.sendPresenceUpdate('unavailable');
+            console.log("🔴 Always Offline restored on startup (1 tick mode).");
+        }
+    } catch (err) {
+        console.error("Failed to restore Always Offline on startup:", err);
     }
 }
 
 module.exports = {
     alwaysOfflineCommand,
     isAlwaysOfflineEnabled,
-    handleAlwaysOffline
+    handleAlwaysOffline,
+    restoreAlwaysOffline
 };
