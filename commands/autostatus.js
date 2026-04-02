@@ -4,8 +4,8 @@ const isOwnerOrSudo = require('../lib/isOwner');
 
 const channelInfo = {
     contextInfo: {
-        newsletterJid: '120363161513685998@newsletter',
-        newsletterName: 'BUGFIXED-SULEXH-XMD',
+        newsletterJid: '120363416402842348@newsletter',
+        newsletterName: 'BUGFIXED SULEXH TECH',
         serverMessageId: -1
     }
 };
