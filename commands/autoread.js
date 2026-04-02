@@ -1,23 +1,35 @@
-/**
- * BUGFIXED-SULEXH-XMD - Autoread Command
- */
-
 const fs = require('fs');
 const path = require('path');
 const isOwnerOrSudo = require('../lib/isOwner');
 
-// Path to store configuration
-const configPath = path.join(__dirname, '..', 'data', 'autoread.json');
-
-// Initialize config file
-function initConfig() {
-    if (!fs.existsSync(configPath)) {
-        fs.writeFileSync(configPath, JSON.stringify({ enabled: false }, null, 2));
-    }
-    return JSON.parse(fs.readFileSync(configPath));
+/**
+ * Get config path per bot
+ */
+function getConfigPath(sock) {
+    if (!sock?.user?.id) return null;
+    const botNumber = sock.user.id.split(':')[0];
+    const dir = path.join(__dirname, '..', 'data');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return path.join(dir, `autoread_${botNumber}.json`);
 }
 
-// Toggle autoread
+/**
+ * Initialize or read config
+ */
+function initConfig(sock) {
+    const configPath = getConfigPath(sock);
+    if (!configPath) return { enabled: false };
+    if (!fs.existsSync(configPath)) fs.writeFileSync(configPath, JSON.stringify({ enabled: false }, null, 2));
+    try {
+        return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } catch {
+        return { enabled: false };
+    }
+}
+
+/**
+ * Toggle autoread
+ */
 async function autoreadCommand(sock, chatId, message) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
@@ -35,14 +47,12 @@ async function autoreadCommand(sock, chatId, message) {
             return;
         }
 
-        // Get command args
         const args =
             message.message?.conversation?.trim().split(' ').slice(1) ||
             message.message?.extendedTextMessage?.text?.trim().split(' ').slice(1) ||
             [];
 
-        // Load config
-        const config = initConfig();
+        const config = initConfig(sock);
 
         if (args.length > 0) {
             const action = args[0].toLowerCase();
@@ -63,10 +73,10 @@ async function autoreadCommand(sock, chatId, message) {
             config.enabled = !config.enabled;
         }
 
-        // Save config
+        // Save
+        const configPath = getConfigPath(sock);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-        // Confirmation message
         await sock.sendMessage(chatId, {
             text: `✅ Auto-read has been ${config.enabled ? 'enabled' : 'disabled'}!`,
             contextInfo: {
@@ -89,64 +99,56 @@ async function autoreadCommand(sock, chatId, message) {
     }
 }
 
-// Check if autoread enabled
-function isAutoreadEnabled() {
+/**
+ * Check if autoread is enabled
+ */
+function isAutoreadEnabled(sock) {
     try {
-        const config = initConfig();
+        const config = initConfig(sock);
         return config.enabled;
-    } catch (error) {
+    } catch {
         return false;
     }
 }
 
-// Check bot mentions
+/**
+ * Check if bot is mentioned
+ */
 function isBotMentionedInMessage(message, botNumber) {
     if (!message.message) return false;
-
-    const messageTypes = [
-        'extendedTextMessage', 'imageMessage', 'videoMessage', 'stickerMessage',
-        'documentMessage', 'audioMessage', 'contactMessage', 'locationMessage'
-    ];
-
-    for (const type of messageTypes) {
-        if (message.message[type]?.contextInfo?.mentionedJid) {
-            if (message.message[type].contextInfo.mentionedJid.includes(botNumber)) {
-                return true;
-            }
-        }
+    const types = ['extendedTextMessage','imageMessage','videoMessage','stickerMessage','documentMessage','audioMessage','contactMessage','locationMessage'];
+    for (const t of types) {
+        if (message.message[t]?.contextInfo?.mentionedJid?.includes(botNumber)) return true;
     }
 
     const text =
         message.message.conversation ||
         message.message.extendedTextMessage?.text ||
         message.message.imageMessage?.caption ||
-        message.message.videoMessage?.caption ||
-        '';
+        message.message.videoMessage?.caption || '';
 
-    if (text) {
-        const botId = botNumber.split('@')[0];
-        if (text.includes(`@${botId}`)) return true;
+    if (!text) return false;
 
-        const botNames = [global.botname?.toLowerCase(), 'bot'];
-        if (botNames.some(name => text.toLowerCase().includes(name))) return true;
-    }
+    const botId = botNumber.split('@')[0];
+    if (text.includes(`@${botId}`)) return true;
 
-    return false;
+    const botNames = [global.botname?.toLowerCase(), 'bot'];
+    return botNames.some(n => text.toLowerCase().includes(n));
 }
 
-// Handle autoread
+/**
+ * Handle autoread
+ */
 async function handleAutoread(sock, message) {
-    if (!isAutoreadEnabled()) return false;
+    if (!isAutoreadEnabled(sock)) return false;
 
     const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-    const botMentioned = isBotMentionedInMessage(message, botNumber);
-
-    if (botMentioned) return false;
+    if (isBotMentionedInMessage(message, botNumber)) return false;
 
     const key = {
         remoteJid: message.key.remoteJid,
         id: message.key.id,
-        participant: message.key.participant
+        participant: message.key.participant || message.key.remoteJid
     };
 
     await sock.readMessages([key]);
@@ -155,7 +157,7 @@ async function handleAutoread(sock, message) {
 
 module.exports = {
     autoreadCommand,
+    handleAutoread,
     isAutoreadEnabled,
-    isBotMentionedInMessage,
-    handleAutoread
+    isBotMentionedInMessage
 };
