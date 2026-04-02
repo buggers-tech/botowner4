@@ -1,60 +1,55 @@
 const fs = require('fs');
 const path = require('path');
 
-let antieditActiveChats = new Set(); // Tracks which chats have antiedit ON
+// Tracks which chats have antiedit ON in memory
+let antieditActiveChats = new Set();
 
-/*
-========================================
-GET FILE PATH PER BOT
-========================================
-*/
+/**
+ * Get file path for this bot
+ */
 function getDataFile(sock) {
     if (!sock?.user?.id) return null;
 
-    const botNumber = sock.user.id.split(":")[0];
-    const dir = path.join(__dirname, '../data/antiedit/<number>.json');
-
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
+    const botNumber = sock.user.id.split(":")[0]; // dynamic bot number
+    const dir = path.join(__dirname, '../data/antiedit');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
     return path.join(dir, `${botNumber}.json`);
 }
 
-/*
-========================================
-READ EDITS
-========================================
-*/
-function readEdits(sock) {
+/**
+ * Load persisted antiedit chat list
+ */
+function loadAntiedit(sock) {
     const file = getDataFile(sock);
     if (!file) return [];
 
     try {
-        return JSON.parse(fs.readFileSync(file, 'utf-8'));
+        const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
+        antieditActiveChats = new Set(data);
     } catch {
-        return [];
+        antieditActiveChats = new Set();
     }
 }
 
-/*
-========================================
-WRITE EDITS
-========================================
-*/
-function writeEdits(sock, edits) {
+/**
+ * Save antiedit chat list
+ */
+function saveAntiedit(sock) {
     const file = getDataFile(sock);
     if (!file) return;
 
-    fs.writeFileSync(file, JSON.stringify(edits, null, 2));
+    try {
+        fs.writeFileSync(file, JSON.stringify([...antieditActiveChats], null, 2));
+    } catch (err) {
+        console.error("Failed to save antiedit chats:", err);
+    }
 }
 
-/*
-========================================
-COMMAND TO TOGGLE ANTIEDIT
-========================================
-*/
-async function antieditCommand(sock, chatId, message) {
+/**
+ * Toggle Antiedit for a chat
+ */
+async function antieditCommand(sock, chatId) {
     try {
         if (antieditActiveChats.has(chatId)) {
             antieditActiveChats.delete(chatId);
@@ -63,6 +58,8 @@ async function antieditCommand(sock, chatId, message) {
             antieditActiveChats.add(chatId);
             await sock.sendMessage(chatId, { text: "✅ Antiedit enabled. I will now detect edited messages." });
         }
+
+        saveAntiedit(sock); // persist changes
     } catch (err) {
         console.log("Antiedit Command Error:", err);
         try {
@@ -71,28 +68,30 @@ async function antieditCommand(sock, chatId, message) {
     }
 }
 
-/*
-========================================
-TRACK AND DISPLAY EDITED MESSAGES
-========================================
-*/
+/**
+ * Track edited messages
+ */
 async function trackEditedMessage(sock, message, beforeText, afterText) {
     try {
         const chatId = message.key?.remoteJid;
-        if (!antieditActiveChats.has(chatId)) return; // Only show if antiedit is ON for this chat
+        if (!antieditActiveChats.has(chatId)) return;
 
-        // Save edits
-        let edits = readEdits(sock);
+        let edits = [];
+        const file = getDataFile(sock);
+        if (file && fs.existsSync(file)) {
+            try { edits = JSON.parse(fs.readFileSync(file, 'utf-8')) || []; } catch {}
+        }
+
         edits.push({
-            sender: message.key?.participant || message.key?.remoteJid,
+            sender: message.key?.participant || chatId,
             before: beforeText,
             after: afterText,
             timestamp: new Date().toISOString()
         });
-        if (edits.length > 100) edits = edits.slice(-100);
-        writeEdits(sock, edits);
 
-        // Send the edited message info
+        if (edits.length > 100) edits = edits.slice(-100);
+        if (file) fs.writeFileSync(file, JSON.stringify(edits, null, 2));
+
         let text = `✏️ *Edited Message Detected*\n\n`;
         text += `*From:* ${message.key?.participant || "Unknown"}\n`;
         text += `*Before:* ${beforeText}\n`;
@@ -106,7 +105,15 @@ async function trackEditedMessage(sock, message, beforeText, afterText) {
     }
 }
 
+/**
+ * Call this on bot startup to restore previous antiedit states
+ */
+function restoreAntiedit(sock) {
+    loadAntiedit(sock);
+}
+
 module.exports = {
     antieditCommand,
-    trackEditedMessage
+    trackEditedMessage,
+    restoreAntiedit
 };
