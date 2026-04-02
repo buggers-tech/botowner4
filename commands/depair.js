@@ -1,17 +1,8 @@
 const fs = require("fs");
 const path = require("path");
-const { isStrictOwner } = require("../lib/isOwner");
 
 async function depairCommand(sock, chatId, message) {
     try {
-        const sender = message.key?.participant || message.key?.remoteJid;
-
-        // ✅ Owner-only check
-        if (!isStrictOwner(sender)) {
-            await sock.sendMessage(chatId, { text: "❌ This command is only for the BOT OWNER." });
-            return;
-        }
-
         const rawText = message.message?.conversation || message.message?.extendedTextMessage?.text || "";
         const parts = rawText.trim().split(/\s+/);
 
@@ -21,7 +12,6 @@ async function depairCommand(sock, chatId, message) {
         }
 
         const number = parts[1].replace(/\D/g, "");
-
         const SESSION_ROOT = "./session_pair";
         const sessionPath = path.join(SESSION_ROOT, number);
         const trackFile = "./data/paired_users.json";
