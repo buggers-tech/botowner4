@@ -2,7 +2,6 @@ require('./settings')
 const { Boom } = require('@hapi/boom')
 const fs = require('fs')
 const chalk = require('chalk')
-const FileType = require('file-type')
 const path = require('path')
 const axios = require('axios')
 const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require('./main');
@@ -20,7 +19,6 @@ const {
     generateMessageID,
     downloadContentFromMessage,
     jidDecode,
-    proto,
     jidNormalizedUser,
     makeCacheableSignalKeyStore,
     delay
@@ -28,11 +26,17 @@ const {
 const NodeCache = require("node-cache")
 const pino = require("pino")
 const readline = require("readline")
+const express = require("express")
+
+// Web service for Render
+const app = express()
+const PORT = process.env.PORT || 3000
+app.get("/", (_, res) => res.send("🚀 BUGBOT XMD is running"))
+app.listen(PORT, () => console.log(`🌐 Web service listening on port ${PORT}`))
 
 // Import lightweight store
 const store = require('./lib/lightweight_store')
 store.readFromFile()
-
 const settings = require('./settings')
 setInterval(() => store.writeToFile(), settings.storeWriteInterval || 10000)
 
