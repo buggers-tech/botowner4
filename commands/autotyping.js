@@ -6,18 +6,15 @@ const path = require('path');
 GET FILE PATH PER BOT
 ========================================
 */
-
 function getDataFile(sock) {
     if (!sock?.user?.id) return null;
 
     const botNumber = sock.user.id.split(":")[0];
-    const dir = path.join(__dirname, '../data/autotyping/<number>.json');
+    const dir = path.join(__dirname, '../data/autotyping'); // folder only
 
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    return path.join(dir, `${botNumber}.json`);
+    return path.join(dir, `${botNumber}.json`); // file per bot
 }
 
 /*
@@ -25,9 +22,7 @@ function getDataFile(sock) {
 READ STATE
 ========================================
 */
-
 function readState(sock) {
-
     const file = getDataFile(sock);
     if (!file) return { enabled: false };
 
@@ -43,9 +38,7 @@ function readState(sock) {
 COMMAND
 ========================================
 */
-
 async function autotypingCommand(sock, chatId, message) {
-
     const arg = message.message?.conversation?.split(' ')[1];
     const currentState = readState(sock);
 
@@ -57,10 +50,7 @@ async function autotypingCommand(sock, chatId, message) {
     const file = getDataFile(sock);
     if (!file) return;
 
-    fs.writeFileSync(
-        file,
-        JSON.stringify({ enabled: newState }, null, 2)
-    );
+    fs.writeFileSync(file, JSON.stringify({ enabled: newState }, null, 2));
 
     await sock.sendMessage(chatId, {
         text: `⌨️ Autotyping is now *${newState ? 'ON' : 'OFF'}*`
@@ -72,11 +62,9 @@ async function autotypingCommand(sock, chatId, message) {
 AUTO TYPING HANDLER
 ========================================
 */
-
 const activeIntervals = {};
 
 async function handleAutotypingForMessage(sock, chatId) {
-
     const state = readState(sock);
     if (!state.enabled) return;
 
@@ -87,12 +75,9 @@ async function handleAutotypingForMessage(sock, chatId) {
 
     if (activeIntervals[key]) return;
 
-    try {
-        await sock.sendPresenceUpdate('composing', chatId);
-    } catch {}
+    try { await sock.sendPresenceUpdate('composing', chatId); } catch {}
 
     const interval = setInterval(async () => {
-
         const currentState = readState(sock);
 
         if (!currentState.enabled) {
@@ -101,16 +86,26 @@ async function handleAutotypingForMessage(sock, chatId) {
             return;
         }
 
-        try {
-            await sock.sendPresenceUpdate('composing', chatId);
-        } catch {}
-
+        try { await sock.sendPresenceUpdate('composing', chatId); } catch {}
     }, 5000);
 
     activeIntervals[key] = interval;
 }
 
+/*
+========================================
+RESTORE ON BOT STARTUP
+========================================
+*/
+function restoreAutotyping(sock, chatIds) {
+    const state = readState(sock);
+    if (!state.enabled) return;
+
+    chatIds.forEach(chatId => handleAutotypingForMessage(sock, chatId));
+}
+
 module.exports = {
     autotypingCommand,
-    handleAutotypingForMessage
+    handleAutotypingForMessage,
+    restoreAutotyping
 };
