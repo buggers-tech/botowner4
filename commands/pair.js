@@ -1,18 +1,7 @@
 const axios = require("axios");
-const { isStrictOwner } = require("../lib/isOwner");
 
 async function pairCommand(sock, chatId, message) {
     try {
-        const sender = message.key?.participant || message.key?.remoteJid;
-
-        // ✅ Owner-only check
-        if (!isStrictOwner(sender)) {
-            await sock.sendMessage(chatId, {
-                text: "❌ This command is only for the BOT OWNER."
-            });
-            return;
-        }
-
         const rawText = message.message?.conversation || message.message?.extendedTextMessage?.text || "";
         const parts = rawText.trim().split(/\s+/);
 
