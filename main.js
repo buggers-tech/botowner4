@@ -1141,7 +1141,7 @@ case userMessage.startsWith('.dpdownload'):
     await sulexhcalCommand(sock, chatId, message);
     break;
             }
-            case userMessage.startsWith('.alwaysoffline'):
+            case userMessage.startsWith('.alwaysOffline'):
     await alwaysofflineCommand(sock, chatId, message);
     commandExecuted = true;
     break;
