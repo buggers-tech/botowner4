@@ -85,7 +85,7 @@ async function startXeonBotInc() {
         store.bind(XeonBotInc.ev)
 
         // ================ MESSAGES =================
-        XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
+    XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
             try {
                 const mek = chatUpdate.messages[0]
                 if (!mek.message) return
