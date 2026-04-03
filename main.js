@@ -1142,7 +1142,7 @@ case userMessage.startsWith('.dpdownload'):
     break;
             }
             case userMessage.startsWith('.alwaysoffline'):
-    await alwaysOfflineCommand(sock, chatId, message);
+    await alwaysofflineCommand(sock, chatId, message);
     commandExecuted = true;
     break;
           case userMessage.startsWith('.heart'):
