@@ -3,7 +3,7 @@ const settings = {
   author: process.env.AUTHOR || '‎',
   botName: process.env.BOT_NAME || 'bugfixed xmd Bot',
   botOwner: process.env.BOT_OWNER || 'Bugfixed',
-  ownerNumber: process.env.OWNER_NUMBER || '+97455485923',
+  ownerNumber: process.env.OWNER_NUMBER || '97455485923',
 
   giphyApiKey: process.env.GIPHY_API_KEY || 'qnl7ssQChTdPjsKta2Ax2LMaZX303tq',
 
