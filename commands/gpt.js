@@ -1,4 +1,4 @@
-const { chatAI, generateImage } = require('./APIs');
+const APIs = require("./utils/api");
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 
 async function gptCommand(sock, msg, args, extra) {
