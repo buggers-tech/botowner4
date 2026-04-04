@@ -1,13 +1,8 @@
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
+const APIs = require("./utils/api");
 const { spawn } = require("child_process");
 
-// Load API key from config.json
-const config = JSON.parse(fs.readFileSync("./config.json", "utf-8"));
-const OPENAI_API_KEY = config.OPENAI_API_KEY;
-
-// Main AI command
 async function aiCommand(sock, chatId, message) {
   try {
     const text =
@@ -19,6 +14,24 @@ async function aiCommand(sock, chatId, message) {
     const imageMessage = quoted?.imageMessage;
     const videoMessage = quoted?.videoMessage;
 
+    // ===== .gpt video of <description> =====
+    if (/^\.gpt\s+video\s+of/i.test(text)) {
+      const prompt = text.replace(/^\.gpt\s+video\s+of\s*/i, "").trim();
+      if (!prompt) {
+        return await sock.sendMessage(chatId, { text: "⚠ Please provide a description.\nExample: .gpt video of a sunset on the beach" }, { quoted: message });
+      }
+
+      try {
+        // Call your video generation API
+        // Placeholder: using chatAI for now (replace with actual video API)
+        const response = await APIs.chatAI(`Generate a video based on this description: ${prompt}`);
+        await sock.sendMessage(chatId, { text: response.msg || response }, { quoted: message });
+      } catch (err) {
+        await sock.sendMessage(chatId, { text: "❌ Video generation failed: " + err.message }, { quoted: message });
+      }
+      return;
+    }
+
     // ===== IMAGE =====
     if (imageMessage) {
       const buffer = await sock.downloadMediaMessage(quoted, "buffer");
@@ -27,9 +40,14 @@ async function aiCommand(sock, chatId, message) {
       await fs.promises.writeFile(tempFile, buffer);
 
       const prompt = text.replace(/^\.ai\s*/i, "") || "Describe this image.";
-      const response = await getAIImageResponse(tempFile, prompt);
 
-      await sock.sendMessage(chatId, { text: response }, { quoted: message });
+      try {
+        const response = await APIs.generateImage(prompt);
+        await sock.sendMessage(chatId, { text: response?.result || "❌ Could not generate image." }, { quoted: message });
+      } catch (err) {
+        await sock.sendMessage(chatId, { text: "❌ Image AI failed: " + err.message }, { quoted: message });
+      }
+
       await fs.promises.unlink(tempFile);
       return;
     }
@@ -42,9 +60,26 @@ async function aiCommand(sock, chatId, message) {
       await fs.promises.writeFile(tempVideo, buffer);
 
       const prompt = text.replace(/^\.ai\s*/i, "") || "Describe this video.";
-      const response = await getAIVideoResponse(tempVideo, prompt);
 
-      await sock.sendMessage(chatId, { text: response }, { quoted: message });
+      try {
+        const framePath = path.join("./temp", `frame_${Date.now()}.jpg`);
+        await new Promise((resolve, reject) => {
+          const ffmpeg = spawn("ffmpeg", ["-i", tempVideo, "-vf", "select=eq(n\\,50)", "-vframes", "1", framePath]);
+          ffmpeg.on("exit", resolve);
+          ffmpeg.on("error", reject);
+        });
+
+        const frameBuffer = fs.readFileSync(framePath);
+        const frameBase64 = frameBuffer.toString("base64");
+        fs.unlinkSync(framePath);
+
+        const response = await APIs.chatAI(`${prompt}\nHere is a key video frame (base64): ${frameBase64}`);
+        await sock.sendMessage(chatId, { text: response.msg || response }, { quoted: message });
+
+      } catch (err) {
+        await sock.sendMessage(chatId, { text: "❌ Video AI failed: " + err.message }, { quoted: message });
+      }
+
       await fs.promises.unlink(tempVideo);
       return;
     }
@@ -57,93 +92,19 @@ async function aiCommand(sock, chatId, message) {
     }
 
     const prompt = text.replace(/^\.ai\s*/i, "").trim();
-    const response = await getAITextResponse(prompt);
-    await sock.sendMessage(chatId, { text: response }, { quoted: message });
 
-  } catch (err) {
-    console.error("AI Command Error:", err.message);
     try {
-      await sock.sendMessage(chatId, { text: "❌ An error occurred. Please try again later." }, { quoted: message });
+      const response = await APIs.chatAI(prompt);
+      await sock.sendMessage(chatId, { text: response.msg || response }, { quoted: message });
+    } catch (err) {
+      await sock.sendMessage(chatId, { text: "❌ AI Error: " + err.message }, { quoted: message });
+    }
+
+  } catch (err) {
+    console.error("AI Command Error:", err);
+    try {
+      await sock.sendMessage(chatId, { text: "❌ An unexpected error occurred." }, { quoted: message });
     } catch {}
-  }
-}
-
-// ===== IMAGE VIA GPT-4V =====
-async function getAIImageResponse(filePath, prompt) {
-  try {
-    const imageData = fs.readFileSync(filePath).toString("base64");
-    const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4",
-        messages: [
-          { role: "user", content: prompt },
-          { role: "user", content: `Here is an image (base64): ${imageData}` }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
-    );
-    return response.data?.choices?.[0]?.message?.content || "❌ Could not process image.";
-  } catch (err) {
-    console.error("Image AI Error:", err.message);
-    return "❌ Failed to process image.";
-  }
-}
-
-// ===== VIDEO VIA GPT-4V (1 key frame) =====
-async function getAIVideoResponse(filePath, prompt) {
-  try {
-    const framePath = path.join("./temp", `frame_${Date.now()}.jpg`);
-    // Extract middle frame
-    await new Promise((resolve, reject) => {
-      const ffmpeg = spawn("ffmpeg", ["-i", filePath, "-vf", "select=eq(n\\,50)", "-vframes", "1", framePath]);
-      ffmpeg.on("exit", resolve);
-      ffmpeg.on("error", reject);
-    });
-
-    const frameData = fs.readFileSync(framePath).toString("base64");
-    await fs.promises.unlink(framePath);
-
-    const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4",
-        messages: [
-          { role: "user", content: prompt },
-          { role: "user", content: `Here is a key video frame (base64): ${frameData}` }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
-    );
-
-    return response.data?.choices?.[0]?.message?.content || "❌ Could not process video.";
-  } catch (err) {
-    console.error("Video AI Error:", err.message);
-    return "❌ Failed to process video.";
-  }
-}
-
-// ===== TEXT VIA GPT-4 =====
-async function getAITextResponse(prompt) {
-  try {
-    const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1500
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
-    );
-    return response.data?.choices?.[0]?.message?.content || "❌ Could not generate response.";
-  } catch (err) {
-    console.error("Text AI Error:", err.message);
-    return "❌ Failed to process request.";
   }
 }
 
