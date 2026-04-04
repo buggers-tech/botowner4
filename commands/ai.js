@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const APIs = require("./utils/api");
+const APIs = require("./utils/Api");
 const { spawn } = require("child_process");
 
 async function aiCommand(sock, chatId, message) {
