@@ -79,24 +79,23 @@ const countryCodes = {
     zambia: 'zm',
     zimbabwe: 'zw',
     somalia: 'so'
-    // You can add more as needed
 };
 
-module.exports = async function (sock, chatId, message) {
+// --- News Command Handler ---
+async function handleNewsCommand(sock, chatId, message, args) {
     try {
-        const rawText = message.message?.conversation || message.message?.extendedTextMessage?.text || "";
-        const parts = rawText.trim().split(/\s+/);
-        let query = parts.slice(1).join(' ') || 'us';
+        // Get query from args
+        let query = args.join(' ').trim() || 'us';
 
-        const apiKey = 'dcd720a6f1914e2d9dba9790c188c08c'; // Your NewsAPI key
+        const apiKey = 'dcd720a6f1914e2d9dba9790c188c08c'; // NewsAPI key
         let apiUrl;
 
-        // Determine if query is a country name or code
+        // Determine if query is country name or code
         const lowerQuery = query.toLowerCase().replace(/\s+/g, '');
         let countryCode = null;
 
         if (lowerQuery.length === 2) {
-            countryCode = lowerQuery; // assume 2-letter code
+            countryCode = lowerQuery;
         } else if (countryCodes[lowerQuery]) {
             countryCode = countryCodes[lowerQuery];
         }
@@ -111,8 +110,7 @@ module.exports = async function (sock, chatId, message) {
         const articles = response.data.articles.slice(0, 5);
 
         if (!articles.length) {
-            await sock.sendMessage(chatId, { text: `⚠ No news found for "${query}".` });
-            return;
+            return await sock.sendMessage(chatId, { text: `⚠ No news found for "${query}".` });
         }
 
         let newsMessage = `📰 *Latest News for "${query}"*:\n\n`;
@@ -123,7 +121,12 @@ module.exports = async function (sock, chatId, message) {
         await sock.sendMessage(chatId, { text: newsMessage });
 
     } catch (error) {
-        console.error('Error fetching news:', error);
+        console.error('News command error:', error);
         await sock.sendMessage(chatId, { text: '⚠ Sorry, I could not fetch news right now.' });
     }
+}
+
+// --- Export module in handler style ---
+module.exports = {
+    handleNewsCommand
 };
