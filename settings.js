@@ -5,8 +5,10 @@ const settings = {
   botOwner: process.env.BOT_OWNER || 'Bugfixed',
   ownerNumber: process.env.OWNER_NUMBER || '254768161116',
 
-  giphyApiKey: process.env.GIPHY_API_KEY || 'qnl7ssQChTdPjsKta2Ax2LMaZX303tq',
+  // ✅ THIS IS REQUIRED
+  numbers: [process.env.OWNER_NUMBER || '254768161116'],
 
+  giphyApiKey: process.env.GIPHY_API_KEY || 'qnl7ssQChTdPjsKta2Ax2LMaZX303tq',
   commandMode: process.env.MODE || 'public',
 
   maxStoreMessages: 20,
@@ -15,7 +17,6 @@ const settings = {
   description: 'This is a bot for managing group commands and automating tasks.',
   version: '3.0.5',
 
-  // ⭐ Render deploy webhook (IMPORTANT)
   updateDeployHook: process.env.UPDATE_DEPLOY_HOOK || "https://api.render.com/deploy/srv-d6e6js4r85hc73cbiktg?key=yhwCmfQCcNg",
 
   updateZipUrl:
